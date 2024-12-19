@@ -31,9 +31,9 @@ export interface LPToken extends Token {
  */
 
 export interface BaseQuote {
-  dx: { value: number }; // Input amount
-  dy: { value: number }; // Output amount
-  dk: { value: number }; // LP token amount (where applicable)
+  dx: number; // Input amount
+  dy: number; // Output amount
+  dk: number; // LP token amount (where applicable)
 }
 
 export interface SwapQuote extends BaseQuote {

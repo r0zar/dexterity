@@ -1,25 +1,26 @@
+import { Vault } from "./vault";
 import type { LPToken, Token } from "../types";
-import { OpcodeBuilder, OperationType } from "./opcode";
+import { Opcode, OperationType } from "./opcode";
 
 export interface GraphNode {
   token: Token;
-  outboundEdges: Map<string, GraphEdge>; // Target node ID -> Edge
-  inboundEdges: Map<string, GraphEdge>; // Source node ID -> Edge
+  outboundEdges: Map<string, GraphEdge>;
+  inboundEdges: Map<string, GraphEdge>;
 }
 
 export interface GraphEdge {
   pool: LPToken;
   source: Token;
   target: Token;
+  vault: Vault;
   data: EdgeData;
 }
 
 export interface EdgeData {
-  liquidity: number; // Current liquidity
-  volume24h?: number; // 24h volume
-  fees?: number; // Fee rate
+  liquidity: number;
+  volume24h?: number;
+  fees?: number;
   reserves?: {
-    // Current reserves
     source: number;
     target: number;
   };
@@ -27,6 +28,7 @@ export interface EdgeData {
 
 export interface RouteHop {
   pool: LPToken;
+  vault: Vault;
   tokenIn: Token;
   tokenOut: Token;
   quote?: {
@@ -36,24 +38,154 @@ export interface RouteHop {
 }
 
 export interface Route {
-  path: Token[]; // Token path
-  hops: RouteHop[]; // Individual hops
-  expectedOutput: number; // Expected output amount
-  priceImpact: number; // Total price impact
-  totalFees: number; // Total fees
+  path: Token[];
+  hops: RouteHop[];
+  expectedOutput: number;
+  priceImpact: number;
+  totalFees: number;
+}
+
+export interface GraphConfig {
+  maxHops?: number;
+  maxSplits?: number;
+  preferredPools?: string[];
 }
 
 export class DexterityGraph {
   private nodes: Map<string, GraphNode> = new Map();
   private edges: Map<string, GraphEdge> = new Map();
+  private config: GraphConfig;
 
-  constructor(private sdk: any) {}
+  constructor(config: GraphConfig = {}) {
+    this.config = {
+      maxHops: config.maxHops || 3,
+      maxSplits: config.maxSplits || 1,
+      preferredPools: config.preferredPools || [],
+    };
+  }
+
+  /**
+   * Factory method to create graph from vaults
+   */
+  static async fromVaults(
+    vaults: Map<string, Vault>,
+    config?: GraphConfig
+  ): Promise<DexterityGraph> {
+    const graph = new DexterityGraph(config);
+
+    // Add all vaults to the graph
+    for (const vault of vaults.values()) {
+      graph.addEdge(vault.getPool(), vault);
+    }
+
+    return graph;
+  }
+
+  /**
+   * Helper Methods
+   */
+
+  /**
+   * Get a node by token contract ID
+   */
+  getNode(contractId: string): GraphNode | undefined {
+    return this.nodes.get(contractId);
+  }
+
+  /**
+   * Get all tokens in the graph
+   */
+  getTokens(): Token[] {
+    return Array.from(this.nodes.values()).map((node) => node.token);
+  }
+
+  /**
+   * Get a specific token by contract ID
+   */
+  getToken(contractId: string): Token | undefined {
+    return this.getNode(contractId)?.token;
+  }
+
+  /**
+   * Get all pools in the graph
+   */
+  getPools(): LPToken[] {
+    const pools = new Set<LPToken>();
+    for (const edge of this.edges.values()) {
+      pools.add(edge.pool);
+    }
+    return Array.from(pools);
+  }
+
+  /**
+   * Get a specific pool by contract ID
+   */
+  getPool(poolId: string): LPToken | undefined {
+    for (const edge of this.edges.values()) {
+      if (edge.pool.contractId === poolId) {
+        return edge.pool;
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * Get an edge by pool ID
+   */
+  getEdgeByPool(poolId: string): GraphEdge | undefined {
+    for (const edge of this.edges.values()) {
+      if (edge.pool.contractId === poolId) {
+        return edge;
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * Get a vault by pool ID
+   */
+  getVault(poolId: string): Vault | undefined {
+    return this.getEdgeByPool(poolId)?.vault;
+  }
+
+  /**
+   * Check if a token exists in the graph
+   */
+  hasToken(contractId: string): boolean {
+    return this.nodes.has(contractId);
+  }
+
+  /**
+   * Check if a pool exists in the graph
+   */
+  hasPool(poolId: string): boolean {
+    return this.getEdgeByPool(poolId) !== undefined;
+  }
+
+  /**
+   * Get all edges for a token
+   */
+  getEdgesForToken(contractId: string): GraphEdge[] {
+    const node = this.getNode(contractId);
+    if (!node) return [];
+
+    return [
+      ...Array.from(node.outboundEdges.values()),
+      ...Array.from(node.inboundEdges.values()),
+    ];
+  }
+
+  /**
+   * Get pools containing a token
+   */
+  getPoolsForToken(contractId: string): LPToken[] {
+    return this.getEdgesForToken(contractId).map((edge) => edge.pool);
+  }
 
   /**
    * Graph Construction
    */
-
-  addNode(token: Token) {
+  private addNode(token: Token): GraphNode {
     if (!this.nodes.has(token.contractId)) {
       this.nodes.set(token.contractId, {
         token,
@@ -64,8 +196,7 @@ export class DexterityGraph {
     return this.nodes.get(token.contractId)!;
   }
 
-  addEdge(pool: LPToken) {
-    // Create bidirectional edges
+  private addEdge(pool: LPToken, vault: Vault) {
     const token0Node = this.addNode(pool.liquidity[0].token);
     const token1Node = this.addNode(pool.liquidity[1].token);
 
@@ -75,17 +206,18 @@ export class DexterityGraph {
       fees: pool.fee,
     };
 
-    // Create 0 -> 1 edge
+    // Create bidirectional edges
     const edge0to1: GraphEdge = {
       pool,
+      vault,
       source: pool.liquidity[0].token,
       target: pool.liquidity[1].token,
       data: edgeData,
     };
 
-    // Create 1 -> 0 edge
     const edge1to0: GraphEdge = {
       pool,
+      vault,
       source: pool.liquidity[1].token,
       target: pool.liquidity[0].token,
       data: edgeData,
@@ -113,25 +245,25 @@ export class DexterityGraph {
   /**
    * Path Finding
    */
-
   async findBestRoute(
     tokenIn: Token,
     tokenOut: Token,
     amountIn: number,
-    maxHops: number = 3
+    senderAddress: string
   ): Promise<Route | null> {
     const paths = this.findAllPaths(
       tokenIn.contractId,
       tokenOut.contractId,
-      maxHops
+      this.config.maxHops || 3
     );
+
     if (paths.length === 0) return null;
 
     const routes: Route[] = [];
 
     for (const path of paths) {
       try {
-        const route = await this.buildRoute(path, amountIn);
+        const route = await this.buildRoute(path, amountIn, senderAddress);
         if (route) routes.push(route);
       } catch (error) {
         console.warn("Error building route:", error);
@@ -182,10 +314,10 @@ export class DexterityGraph {
   /**
    * Route Building
    */
-
   private async buildRoute(
     path: Token[],
-    amountIn: number
+    amountIn: number,
+    senderAddress: string
   ): Promise<Route | null> {
     if (path.length < 2) return null;
 
@@ -200,25 +332,28 @@ export class DexterityGraph {
       if (!edge) return null;
 
       // Get quote for this hop
-      const opcode = new OpcodeBuilder()
-        .setOperation(OperationType.SWAP_A_TO_B)
-        .build();
+      const opcode = new Opcode().setOperation(OperationType.SWAP_A_TO_B);
 
       try {
-        const quote = await this.sdk.getQuote(edge.pool, currentAmount, opcode);
+        const quote = await edge.vault.quote(
+          senderAddress,
+          currentAmount,
+          opcode
+        );
 
         const hop: RouteHop = {
           pool: edge.pool,
+          vault: edge.vault,
           tokenIn,
           tokenOut,
           quote: {
             amountIn: currentAmount,
-            amountOut: quote.dy.value,
+            amountOut: quote.dy,
           },
         };
 
         hops.push(hop);
-        currentAmount = quote.dy.value;
+        currentAmount = quote.dy;
       } catch (error) {
         console.error("Error getting quote for hop:", error);
         return null;
@@ -242,7 +377,6 @@ export class DexterityGraph {
   /**
    * Helper Methods
    */
-
   private getEdge(fromId: string, toId: string): GraphEdge | null {
     const edgeId = getEdgeId(fromId, toId);
     return this.edges.get(edgeId) || null;
@@ -256,13 +390,11 @@ export class DexterityGraph {
 /**
  * Utility Functions
  */
-
 function getEdgeId(fromId: string, toId: string): string {
   return `${fromId}-${toId}`;
 }
 
 function calculateLiquidity(pool: LPToken): number {
-  // Simplified TVL calculation
   return pool.liquidity[0].reserves + pool.liquidity[1].reserves;
 }
 
@@ -274,26 +406,3 @@ function calculatePriceImpact(hops: RouteHop[]): number {
 function calculateTotalFees(hops: RouteHop[]): number {
   return hops.reduce((total, hop) => total + (hop.pool.fee || 0), 0);
 }
-
-/**
- * Usage Example
- */
-
-/*
-// Initialize
-const graph = new DexterityGraph(sdk);
-
-// Add pools
-pools.forEach(pool => graph.addEdge(pool));
-
-// Find best route
-const route = await graph.findBestRoute(tokenIn, tokenOut, amount);
-if (route) {
-  console.log('Best route found:', {
-    path: route.path.map(t => t.metadata.symbol),
-    expectedOutput: route.expectedOutput,
-    priceImpact: route.priceImpact,
-    hops: route.hops.length
-  });
-}
-*/
