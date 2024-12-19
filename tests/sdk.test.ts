@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { DexteritySDK } from "../src/index";
+import { DexteritySDK, LPToken } from "../src/index";
 import { Presets } from "../src/lib/opcode";
 import { STACKS_TESTNET } from "@stacks/network";
 
@@ -9,38 +9,38 @@ describe("DexteritySDK", () => {
   const network = STACKS_TESTNET;
 
   // Sample pool data
-  const testPool = {
+  const testPool: LPToken = {
     contractId: `${testAddress}.lp-token-rc4`,
-    token0: {
-      contractId: `${testAddress}.charisma`,
-      metadata: {
-        symbol: "CHA",
-        name: "Charisma Token",
-        decimals: 6,
-        identifier: "charisma",
+    liquidity: [
+      {
+        token: {
+          contractId: `${testAddress}.charisma`,
+          identifier: "charisma",
+          name: "Charisma Token",
+          symbol: "CHA",
+          decimals: 6,
+          supply: 100000000,
+        },
+        reserves: 1000000,
       },
-    },
-    token1: {
-      contractId: `${testAddress}.dme000-governance-token`,
-      metadata: {
-        symbol: "DMG",
-        name: "Governance Token",
-        decimals: 6,
-        identifier: "charisma",
+      {
+        token: {
+          contractId: `${testAddress}.dme000-governance-token`,
+          identifier: "charisma",
+          name: "Governance Token",
+          symbol: "DMG",
+          decimals: 6,
+          supply: 100000000,
+        },
+        reserves: 1000000,
       },
-    },
-    poolData: {
-      reserve0: 1000000,
-      reserve1: 1000000,
-      totalSupply: 1000000,
-      fee: 3000,
-    },
-    metadata: {
-      symbol: "DEX",
-      name: "Dexterity",
-      decimals: 6,
-      identifier: "DEX",
-    },
+    ],
+    symbol: "DEX",
+    name: "Dexterity",
+    decimals: 6,
+    identifier: "DEX",
+    supply: 1000000,
+    fee: 3000,
   };
 
   beforeAll(() => {

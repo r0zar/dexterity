@@ -10,7 +10,7 @@ import {
   fetchCallReadOnlyFunction,
 } from "@stacks/transactions";
 import { OpcodeBuilder, OperationType, Presets } from "./lib/opcode";
-import type { Quote, Pool, Token, TransactionConfig } from "./types";
+import type { Quote, LPToken, Token, TransactionConfig } from "./types";
 
 export class DexteritySDK {
   private network: any;
@@ -25,7 +25,7 @@ export class DexteritySDK {
    * Quote Functions
    */
   async getQuote(
-    pool: Pool,
+    pool: LPToken,
     amount: number,
     opcodeBuilder: OpcodeBuilder
   ): Promise<Quote> {
@@ -48,7 +48,7 @@ export class DexteritySDK {
    * Swap Operations
    */
   async buildSwapTransaction(
-    pool: Pool,
+    pool: LPToken,
     amount: number,
     opcodeBuilder: OpcodeBuilder = Presets.swapExactAForB(),
     slippagePercent: number = 0.5
@@ -58,8 +58,10 @@ export class DexteritySDK {
 
     // Determine from/to tokens based on operation type
     const isAToB = opcodeBuilder.getParameter(0) === OperationType.SWAP_A_TO_B;
-    const fromToken = isAToB ? pool.token0 : pool.token1;
-    const toToken = isAToB ? pool.token1 : pool.token0;
+    const fromToken = isAToB
+      ? pool.liquidity[0].token
+      : pool.liquidity[1].token;
+    const toToken = isAToB ? pool.liquidity[1].token : pool.liquidity[0].token;
 
     const postConditions = [
       this.createPostCondition(fromToken, amount),
@@ -85,7 +87,7 @@ export class DexteritySDK {
    * Liquidity Operations
    */
   async buildAddLiquidityTransaction(
-    pool: Pool,
+    pool: LPToken,
     amount: number,
     opcodeBuilder: OpcodeBuilder = Presets.addBalancedLiquidity(),
     slippagePercent: number = 0.5
@@ -95,11 +97,11 @@ export class DexteritySDK {
 
     const postConditions = [
       this.createPostCondition(
-        pool.token0,
+        pool.liquidity[0].token,
         Math.ceil(quote.dx.value * slippage)
       ),
       this.createPostCondition(
-        pool.token1,
+        pool.liquidity[1].token,
         Math.ceil(quote.dy.value * slippage)
       ),
     ];
@@ -116,7 +118,7 @@ export class DexteritySDK {
   }
 
   async buildRemoveLiquidityTransaction(
-    pool: Pool,
+    pool: LPToken,
     amount: number,
     opcodeBuilder: OpcodeBuilder = Presets.removeLiquidity(),
     slippagePercent: number = 0.5
@@ -127,12 +129,12 @@ export class DexteritySDK {
     const postConditions = [
       this.createPostCondition(pool, amount),
       this.createPostCondition(
-        pool.token0,
+        pool.liquidity[0].token,
         Math.floor(quote.dx.value * slippage),
         pool.contractId
       ),
       this.createPostCondition(
-        pool.token1,
+        pool.liquidity[1].token,
         Math.floor(quote.dy.value * slippage),
         pool.contractId
       ),
@@ -152,11 +154,10 @@ export class DexteritySDK {
   /**
    * Multi-hop Operations
    */
-  // Continuing from previous implementation...
 
   async buildMultiHopSwapTransaction(
     path: Token[],
-    pools: Pool[],
+    pools: LPToken[],
     amount: number,
     opcodes: OpcodeBuilder[] = [],
     slippagePercent: number = 0.5
@@ -165,7 +166,8 @@ export class DexteritySDK {
     if (opcodes.length === 0) {
       opcodes = pools.map((pool, i) => {
         const fromToken = path[i];
-        const isAToB = pool.token0.contractId === fromToken.contractId;
+        const isAToB =
+          pool.liquidity[0].token.contractId === fromToken.contractId;
         return isAToB ? Presets.swapExactAForB() : Presets.swapExactBForA();
       });
     }
@@ -231,32 +233,21 @@ export class DexteritySDK {
    * Helper Methods
    */
   private createPostCondition(
-    tokenOrPool: Token | Pool,
+    token: Token,
     amount: number,
     sender: string = this.stxAddress
   ) {
     // Handle STX transfers
-    if ("contractId" in tokenOrPool && tokenOrPool.contractId === ".stx") {
+    if (token.contractId === ".stx") {
       return Pc.principal(sender).willSendEq(amount).ustx();
     }
 
-    // For pools, use the LP token identifier from pool metadata
-    if ("metadata" in tokenOrPool && "token0" in tokenOrPool) {
+    // For SIP10 tokens
+    else {
       return Pc.principal(sender)
         .willSendEq(amount)
-        .ft(tokenOrPool.contractId as any, tokenOrPool.metadata.identifier);
+        .ft(token.contractId as any, token.identifier);
     }
-
-    // For regular tokens
-    if ("metadata" in tokenOrPool && "identifier" in tokenOrPool.metadata) {
-      return Pc.principal(sender)
-        .willSendEq(amount)
-        .ft(tokenOrPool.contractId as any, tokenOrPool.metadata.identifier!);
-    }
-
-    throw new Error(
-      "Invalid token or pool object provided to createPostCondition"
-    );
   }
 }
 
@@ -281,12 +272,12 @@ export {
 } from "./lib/graph";
 
 // Contract generation
-export { ContractGenerator, type ContractConfig } from "./lib/generator";
+export { ContractGenerator } from "./lib/generator";
 
 // Type exports
 export type {
   Token,
-  Pool,
+  LPToken,
   Quote,
   SwapQuote,
   LiquidityQuote,

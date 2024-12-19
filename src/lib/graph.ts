@@ -1,4 +1,4 @@
-import type { Pool, Token } from "../types";
+import type { LPToken, Token } from "../types";
 import { OpcodeBuilder, OperationType } from "./opcode";
 
 export interface GraphNode {
@@ -8,7 +8,7 @@ export interface GraphNode {
 }
 
 export interface GraphEdge {
-  pool: Pool;
+  pool: LPToken;
   source: Token;
   target: Token;
   data: EdgeData;
@@ -26,7 +26,7 @@ export interface EdgeData {
 }
 
 export interface RouteHop {
-  pool: Pool;
+  pool: LPToken;
   tokenIn: Token;
   tokenOut: Token;
   quote?: {
@@ -64,47 +64,47 @@ export class DexterityGraph {
     return this.nodes.get(token.contractId)!;
   }
 
-  addEdge(pool: Pool) {
+  addEdge(pool: LPToken) {
     // Create bidirectional edges
-    const token0Node = this.addNode(pool.token0);
-    const token1Node = this.addNode(pool.token1);
+    const token0Node = this.addNode(pool.liquidity[0].token);
+    const token1Node = this.addNode(pool.liquidity[1].token);
 
     // Calculate edge data
     const edgeData: EdgeData = {
       liquidity: calculateLiquidity(pool),
-      fees: pool.poolData.fee,
+      fees: pool.fee,
     };
 
     // Create 0 -> 1 edge
     const edge0to1: GraphEdge = {
       pool,
-      source: pool.token0,
-      target: pool.token1,
+      source: pool.liquidity[0].token,
+      target: pool.liquidity[1].token,
       data: edgeData,
     };
 
     // Create 1 -> 0 edge
     const edge1to0: GraphEdge = {
       pool,
-      source: pool.token1,
-      target: pool.token0,
+      source: pool.liquidity[1].token,
+      target: pool.liquidity[0].token,
       data: edgeData,
     };
 
     // Add to nodes
-    token0Node.outboundEdges.set(pool.token1.contractId, edge0to1);
-    token0Node.inboundEdges.set(pool.token1.contractId, edge1to0);
-    token1Node.outboundEdges.set(pool.token0.contractId, edge1to0);
-    token1Node.inboundEdges.set(pool.token0.contractId, edge0to1);
+    token0Node.outboundEdges.set(pool.liquidity[1].token.contractId, edge0to1);
+    token0Node.inboundEdges.set(pool.liquidity[1].token.contractId, edge1to0);
+    token1Node.outboundEdges.set(pool.liquidity[0].token.contractId, edge1to0);
+    token1Node.inboundEdges.set(pool.liquidity[0].token.contractId, edge0to1);
 
     // Store edges
     const edgeId0to1 = getEdgeId(
-      pool.token0.contractId,
-      pool.token1.contractId
+      pool.liquidity[0].token.contractId,
+      pool.liquidity[1].token.contractId
     );
     const edgeId1to0 = getEdgeId(
-      pool.token1.contractId,
-      pool.token0.contractId
+      pool.liquidity[1].token.contractId,
+      pool.liquidity[0].token.contractId
     );
     this.edges.set(edgeId0to1, edge0to1);
     this.edges.set(edgeId1to0, edge1to0);
@@ -261,9 +261,9 @@ function getEdgeId(fromId: string, toId: string): string {
   return `${fromId}-${toId}`;
 }
 
-function calculateLiquidity(pool: Pool): number {
+function calculateLiquidity(pool: LPToken): number {
   // Simplified TVL calculation
-  return pool.poolData.reserve0 + pool.poolData.reserve1;
+  return pool.liquidity[0].reserves + pool.liquidity[1].reserves;
 }
 
 function calculatePriceImpact(hops: RouteHop[]): number {
@@ -272,7 +272,7 @@ function calculatePriceImpact(hops: RouteHop[]): number {
 }
 
 function calculateTotalFees(hops: RouteHop[]): number {
-  return hops.reduce((total, hop) => total + (hop.pool.poolData.fee || 0), 0);
+  return hops.reduce((total, hop) => total + (hop.pool.fee || 0), 0);
 }
 
 /**

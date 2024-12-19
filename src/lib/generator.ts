@@ -1,23 +1,4 @@
-import { Token } from "../types";
-
-export interface ContractConfig {
-  tokenA: Token;
-  tokenB: Token;
-  lpTokenName: string;
-  lpTokenSymbol: string;
-  lpRebatePercent: number;
-  initialLiquidityA: number;
-  initialLiquidityB: number;
-  description?: string;
-  metadata?: {
-    website?: string;
-    logo?: string;
-    socials?: {
-      twitter?: string;
-      discord?: string;
-    };
-  };
-}
+import { LPToken } from "../types";
 
 interface ContractParams {
   tokenUri: string;
@@ -34,16 +15,16 @@ export class ContractGenerator {
   /**
    * Generate complete pool contract source code
    */
-  static generatePoolContract(config: ContractConfig): string {
+  static generateVaultContract(config: LPToken): string {
     const params = {
       tokenUri: ContractGenerator.getTokenUri(config),
-      tokenAContract: config.tokenA.contractId,
-      tokenBContract: config.tokenB.contractId,
-      lpTokenName: config.lpTokenName,
-      lpTokenSymbol: config.lpTokenSymbol,
-      lpRebatePercent: config.lpRebatePercent,
-      initialLiquidityA: config.initialLiquidityA,
-      initialLiquidityB: config.initialLiquidityB,
+      tokenAContract: config.liquidity[0].token.contractId,
+      tokenBContract: config.liquidity[1].token.contractId,
+      lpTokenName: config.name,
+      lpTokenSymbol: config.symbol,
+      lpRebatePercent: config.fee,
+      initialLiquidityA: config.liquidity[0].reserves,
+      initialLiquidityB: config.liquidity[1].reserves,
     };
 
     return this.generateContractCode(params);
@@ -363,21 +344,20 @@ export class ContractGenerator {
    * Deploy pool contract to network
    */
   static async deployPoolContract(
-    config: ContractConfig,
+    config: LPToken,
     network: any,
     senderAddress: string
   ): Promise<string> {
-    const source = this.generatePoolContract(config);
-    const contractName = this.sanitizeContractName(config.lpTokenSymbol);
-
+    const source = this.generateVaultContract(config);
+    const contractName = this.sanitizeContractName(config.symbol);
     // TODO: Add actual contract deployment logic
 
     return this.getFullContractName(contractName, senderAddress);
   }
 
   // Validation and helper methods remain the same...
-  private static validateConfig(config: ContractConfig): boolean {
-    // Implementation remains the same...
+  private static validateConfig(config: LPToken): boolean {
+    // TODO: Add actual validation logic
     return true;
   }
 
@@ -392,7 +372,7 @@ export class ContractGenerator {
     return `${address}.${contractName}`;
   }
 
-  private static getTokenUri(config: ContractConfig): string {
-    return `https://charisma.rocks/api/v0/metadata/${config.lpTokenSymbol}`;
+  private static getTokenUri(config: LPToken): string {
+    return `https://charisma.rocks/api/v0/metadata/${config.contractId}`;
   }
 }

@@ -7,69 +7,22 @@ import { PostConditionMode } from "@stacks/transactions";
 
 export interface Token {
   contractId: string;
-  metadata: {
-    symbol: string;
-    name: string;
-    decimals: number;
-    identifier?: string; // SIP-010 token identifier
-    images?: {
-      logo?: string;
-    };
-  };
-}
-
-// Interface for SIP-010 compliant LP tokens
-export interface LPToken {
-  contractId: string;
-  metadata: {
-    symbol: string;
-    name: string;
-    decimals: number;
-    identifier: string; // Required for LP tokens
-  };
-}
-
-export interface Pool extends LPToken {
-  token0: Token;
-  token1: Token;
-  poolData: {
-    reserve0: number;
-    reserve1: number;
-    totalSupply: number;
-    fee: number;
-  };
-  metadata: {
-    symbol: string;
-    name: string;
-    decimals: number;
-    identifier: string; // LP token identifier is required for pools
-    description?: string;
-    image?: string;
-  };
-}
-
-export interface TokenMetadata {
-  symbol: string;
+  identifier: string;
   name: string;
+  symbol: string;
   decimals: number;
-  identifier?: string; // SIP-010 token identifier
-  images?: {
-    logo?: string;
-  };
-}
-
-export interface PoolMetadata {
-  name: string;
-  symbol: string;
-  identifier: string; // LP token identifier
-  description?: string;
+  supply?: number;
   image?: string;
+  description?: string;
 }
 
-export interface PoolData {
-  reserve0: number;
-  reserve1: number;
-  totalSupply: number;
+export interface Liquidity {
+  token: Token;
+  reserves: number;
+}
+
+export interface LPToken extends Token {
+  liquidity: Liquidity[];
   fee: number;
 }
 
@@ -127,7 +80,7 @@ export interface PostCondition {
  */
 
 export interface SwapConfig {
-  pool: Pool;
+  pool: LPToken;
   amount: number;
   slippagePercent?: number;
   deadline?: number;
@@ -135,7 +88,7 @@ export interface SwapConfig {
 }
 
 export interface LiquidityConfig {
-  pool: Pool;
+  pool: LPToken;
   amount: number;
   slippagePercent?: number;
   deadline?: number;
@@ -144,7 +97,7 @@ export interface LiquidityConfig {
 
 export interface MultiHopConfig {
   path: Token[];
-  pools: Pool[];
+  pools: LPToken[];
   amount: number;
   slippagePercent?: number;
   deadline?: number;
@@ -218,7 +171,7 @@ export interface RouterConfig {
 
 export interface PoolResponse {
   success: boolean;
-  pool?: Pool;
+  pool?: LPToken;
   error?: DexterityError;
 }
 
