@@ -1,6 +1,6 @@
 # Dexterity Protocol SDK
 
-A complete TypeScript SDK for interacting with Vaults on Dexterity, a permissionless liquidity protocol. Each vault exists as an independent smart contract, providing enhanced security through isolation.
+A complete TypeScript SDK for Dexterity, a permissionless liquidity protocol on Stacks. Each vault exists as an independent smart contract, providing enhanced security through isolation.
 
 ## Table of Contents
 
@@ -124,8 +124,7 @@ import { Opcode, OperationType, SwapType, FeeType } from "dexterity-sdk";
 const opcode = new Opcode()
   .setOperation(OperationType.SWAP_A_TO_B)
   .setSwapType(SwapType.EXACT_INPUT)
-  .setFeeType(FeeType.REDUCE_INPUT)
-  .build();
+  .setFeeType(FeeType.REDUCE_INPUT);
 
 // Common presets available
 Presets.swapExactAForB();
