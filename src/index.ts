@@ -1,3 +1,4 @@
+// src/index.ts
 import {
   contractPrincipalCV,
   Pc,
@@ -6,10 +7,10 @@ import {
   optionalCVOf,
   tupleCV,
   cvToValue,
-  fetchCallReadOnlyFunction
-} from '@stacks/transactions';
-import { OpcodeBuilder, OperationType, Presets } from './opcode';
-import type { Quote, Pool, Token, TransactionConfig } from './types';
+  fetchCallReadOnlyFunction,
+} from "@stacks/transactions";
+import { OpcodeBuilder, OperationType, Presets } from "./lib/opcode";
+import type { Quote, Pool, Token, TransactionConfig } from "./types";
 
 export class DexteritySDK {
   private network: any;
@@ -23,14 +24,21 @@ export class DexteritySDK {
   /**
    * Quote Functions
    */
-  async getQuote(pool: Pool, amount: number, opcodeBuilder: OpcodeBuilder): Promise<Quote> {
+  async getQuote(
+    pool: Pool,
+    amount: number,
+    opcodeBuilder: OpcodeBuilder
+  ): Promise<Quote> {
     const response = await fetchCallReadOnlyFunction({
-      contractAddress: pool.contractId.split('.')[0],
-      contractName: pool.contractId.split('.')[1],
-      functionName: 'quote',
-      functionArgs: [uintCV(Math.floor(amount)), optionalCVOf(opcodeBuilder.build())],
+      contractAddress: pool.contractId.split(".")[0],
+      contractName: pool.contractId.split(".")[1],
+      functionName: "quote",
+      functionArgs: [
+        uintCV(Math.floor(amount)),
+        optionalCVOf(opcodeBuilder.build()),
+      ],
       senderAddress: this.stxAddress,
-      network: this.network
+      network: this.network,
     });
 
     return cvToValue(response).value as Quote;
@@ -55,17 +63,21 @@ export class DexteritySDK {
 
     const postConditions = [
       this.createPostCondition(fromToken, amount),
-      this.createPostCondition(toToken, Math.floor(quote.dy.value * slippage), pool.contractId)
+      this.createPostCondition(
+        toToken,
+        Math.floor(quote.dy.value * slippage),
+        pool.contractId
+      ),
     ];
 
     return {
       network: this.network,
-      contractAddress: pool.contractId.split('.')[0],
-      contractName: pool.contractId.split('.')[1],
-      functionName: 'execute',
+      contractAddress: pool.contractId.split(".")[0],
+      contractName: pool.contractId.split(".")[1],
+      functionName: "execute",
       functionArgs: [uintCV(amount), optionalCVOf(opcodeBuilder.build())],
       postConditionMode: PostConditionMode.Deny,
-      postConditions
+      postConditions,
     };
   }
 
@@ -82,18 +94,24 @@ export class DexteritySDK {
     const slippage = 1 + slippagePercent / 100;
 
     const postConditions = [
-      this.createPostCondition(pool.token0, Math.ceil(quote.dx.value * slippage)),
-      this.createPostCondition(pool.token1, Math.ceil(quote.dy.value * slippage))
+      this.createPostCondition(
+        pool.token0,
+        Math.ceil(quote.dx.value * slippage)
+      ),
+      this.createPostCondition(
+        pool.token1,
+        Math.ceil(quote.dy.value * slippage)
+      ),
     ];
 
     return {
       network: this.network,
-      contractAddress: pool.contractId.split('.')[0],
-      contractName: pool.contractId.split('.')[1],
-      functionName: 'execute',
+      contractAddress: pool.contractId.split(".")[0],
+      contractName: pool.contractId.split(".")[1],
+      functionName: "execute",
       functionArgs: [uintCV(amount), optionalCVOf(opcodeBuilder.build())],
       postConditionMode: PostConditionMode.Deny,
-      postConditions
+      postConditions,
     };
   }
 
@@ -108,18 +126,26 @@ export class DexteritySDK {
 
     const postConditions = [
       this.createPostCondition(pool, amount),
-      this.createPostCondition(pool.token0, Math.floor(quote.dx.value * slippage), pool.contractId),
-      this.createPostCondition(pool.token1, Math.floor(quote.dy.value * slippage), pool.contractId)
+      this.createPostCondition(
+        pool.token0,
+        Math.floor(quote.dx.value * slippage),
+        pool.contractId
+      ),
+      this.createPostCondition(
+        pool.token1,
+        Math.floor(quote.dy.value * slippage),
+        pool.contractId
+      ),
     ];
 
     return {
       network: this.network,
-      contractAddress: pool.contractId.split('.')[0],
-      contractName: pool.contractId.split('.')[1],
-      functionName: 'execute',
+      contractAddress: pool.contractId.split(".")[0],
+      contractName: pool.contractId.split(".")[1],
+      functionName: "execute",
       functionArgs: [uintCV(amount), optionalCVOf(opcodeBuilder.build())],
       postConditionMode: PostConditionMode.Deny,
-      postConditions
+      postConditions,
     };
   }
 
@@ -146,14 +172,17 @@ export class DexteritySDK {
 
     // Ensure we have the correct number of opcodes
     if (opcodes.length !== pools.length) {
-      throw new Error('Number of opcodes must match number of pools');
+      throw new Error("Number of opcodes must match number of pools");
     }
 
     // Create hop tuples
     const hops = pools.map((pool, i) => {
       return tupleCV({
-        pool: contractPrincipalCV(pool.contractId.split('.')[0], pool.contractId.split('.')[1]),
-        opcode: optionalCVOf(opcodes[i].build())
+        pool: contractPrincipalCV(
+          pool.contractId.split(".")[0],
+          pool.contractId.split(".")[1]
+        ),
+        opcode: optionalCVOf(opcodes[i].build()),
       });
     });
 
@@ -189,12 +218,12 @@ export class DexteritySDK {
 
     return {
       network: this.network,
-      contractAddress: 'SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS',
-      contractName: 'multihop',
+      contractAddress: "SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS",
+      contractName: "multihop",
       functionName: `swap-${path.length - 1}`,
       functionArgs: [uintCV(amount), ...hops],
       postConditionMode: PostConditionMode.Deny,
-      postConditions
+      postConditions,
     };
   }
 
@@ -207,27 +236,69 @@ export class DexteritySDK {
     sender: string = this.stxAddress
   ) {
     // Handle STX transfers
-    if ('contractId' in tokenOrPool && tokenOrPool.contractId === '.stx') {
+    if ("contractId" in tokenOrPool && tokenOrPool.contractId === ".stx") {
       return Pc.principal(sender).willSendEq(amount).ustx();
     }
 
     // For pools, use the LP token identifier from pool metadata
-    if ('metadata' in tokenOrPool && 'token0' in tokenOrPool) {
+    if ("metadata" in tokenOrPool && "token0" in tokenOrPool) {
       return Pc.principal(sender)
         .willSendEq(amount)
         .ft(tokenOrPool.contractId as any, tokenOrPool.metadata.identifier);
     }
 
     // For regular tokens
-    if ('metadata' in tokenOrPool && 'identifier' in tokenOrPool.metadata) {
+    if ("metadata" in tokenOrPool && "identifier" in tokenOrPool.metadata) {
       return Pc.principal(sender)
         .willSendEq(amount)
         .ft(tokenOrPool.contractId as any, tokenOrPool.metadata.identifier!);
     }
 
-    throw new Error('Invalid token or pool object provided to createPostCondition');
+    throw new Error(
+      "Invalid token or pool object provided to createPostCondition"
+    );
   }
 }
+
+// Opcode functionality
+export {
+  OpcodeBuilder,
+  OperationType,
+  SwapType,
+  FeeType,
+  LiquidityType,
+  Presets,
+} from "./lib/opcode";
+
+// Graph functionality
+export {
+  DexterityGraph,
+  type GraphNode,
+  type GraphEdge,
+  type EdgeData,
+  type Route,
+  type RouteHop,
+} from "./lib/graph";
+
+// Contract generation
+export { ContractGenerator, type ContractConfig } from "./lib/generator";
+
+// Type exports
+export type {
+  Token,
+  Pool,
+  Quote,
+  SwapQuote,
+  LiquidityQuote,
+  TransactionConfig,
+  SwapConfig,
+  LiquidityConfig,
+  MultiHopConfig,
+  SDKConfig,
+  RouterConfig,
+  DexterityResponse,
+  DexterityError,
+} from "./types";
 
 /**
  * Usage Examples

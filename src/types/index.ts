@@ -1,4 +1,5 @@
-import { PostConditionMode } from '@stacks/transactions';
+// src/types.ts
+import { PostConditionMode } from "@stacks/transactions";
 
 /**
  * Core Entity Types
@@ -118,7 +119,7 @@ export interface PostCondition {
   principal: string;
   amount: number;
   token?: Token;
-  conditionCode: 'send-eq' | 'send-lte' | 'send-gte';
+  conditionCode: "send-eq" | "send-lte" | "send-gte";
 }
 
 /**
@@ -189,7 +190,7 @@ export enum ErrorCode {
   INVALID_PATH = 1004,
   QUOTE_FAILED = 1005,
   TRANSACTION_FAILED = 1006,
-  INVALID_OPCODE = 1007
+  INVALID_OPCODE = 1007,
 }
 
 /**
@@ -233,4 +234,7 @@ export interface TransactionResponse {
   error?: DexterityError;
 }
 
-export type DexterityResponse = PoolResponse | QuoteResponse | TransactionResponse;
+export type DexterityResponse =
+  | PoolResponse
+  | QuoteResponse
+  | TransactionResponse;

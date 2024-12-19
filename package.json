@@ -1,0 +1,52 @@
+{
+  "name": "dexterity-sdk",
+  "version": "0.1.0-rc.1",
+  "description": "SDK for interacting with Dexterity AMM protocol",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rimraf dist",
+    "prepare": "npm run clean && npm run build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "prepublishOnly": "npm run test && npm run build",
+    "publish:check": "git diff-index --quiet HEAD || (echo 'Working directory not clean. Please commit or stash changes first.' && exit 1)",
+    "publish:rc": "npm run publish:check && npm version prerelease --preid=rc && npm publish --tag next && git push && git push --tags",
+    "publish:release": "npm run publish:check && npm version minor && npm publish && git push && git push --tags"
+  },
+  "keywords": [
+    "defi",
+    "amm",
+    "stacks",
+    "blockchain",
+    "typescript"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@stacks/common": "7.0.2",
+    "@stacks/network": "7.0.2",
+    "@stacks/transactions": "7.0.2",
+    "@stacks/blockchain-api-client": "8.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "@vitest/coverage-v8": "^1.0.0",
+    "cross-fetch": "^4.0.0",
+    "eslint": "^8.0.0",
+    "prettier": "^3.0.0",
+    "rimraf": "^5.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0"
+  }
+}

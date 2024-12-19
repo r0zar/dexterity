@@ -1,5 +1,5 @@
-import { OpcodeBuilder, OperationType } from './opcode';
-import type { Pool, Token } from './types';
+import type { Pool, Token } from "../types";
+import { OpcodeBuilder, OperationType } from "./opcode";
 
 export interface GraphNode {
   token: Token;
@@ -58,7 +58,7 @@ export class DexterityGraph {
       this.nodes.set(token.contractId, {
         token,
         outboundEdges: new Map(),
-        inboundEdges: new Map()
+        inboundEdges: new Map(),
       });
     }
     return this.nodes.get(token.contractId)!;
@@ -72,7 +72,7 @@ export class DexterityGraph {
     // Calculate edge data
     const edgeData: EdgeData = {
       liquidity: calculateLiquidity(pool),
-      fees: pool.poolData.fee
+      fees: pool.poolData.fee,
     };
 
     // Create 0 -> 1 edge
@@ -80,7 +80,7 @@ export class DexterityGraph {
       pool,
       source: pool.token0,
       target: pool.token1,
-      data: edgeData
+      data: edgeData,
     };
 
     // Create 1 -> 0 edge
@@ -88,7 +88,7 @@ export class DexterityGraph {
       pool,
       source: pool.token1,
       target: pool.token0,
-      data: edgeData
+      data: edgeData,
     };
 
     // Add to nodes
@@ -98,8 +98,14 @@ export class DexterityGraph {
     token1Node.inboundEdges.set(pool.token0.contractId, edge0to1);
 
     // Store edges
-    const edgeId0to1 = getEdgeId(pool.token0.contractId, pool.token1.contractId);
-    const edgeId1to0 = getEdgeId(pool.token1.contractId, pool.token0.contractId);
+    const edgeId0to1 = getEdgeId(
+      pool.token0.contractId,
+      pool.token1.contractId
+    );
+    const edgeId1to0 = getEdgeId(
+      pool.token1.contractId,
+      pool.token0.contractId
+    );
     this.edges.set(edgeId0to1, edge0to1);
     this.edges.set(edgeId1to0, edge1to0);
   }
@@ -114,7 +120,11 @@ export class DexterityGraph {
     amountIn: number,
     maxHops: number = 3
   ): Promise<Route | null> {
-    const paths = this.findAllPaths(tokenIn.contractId, tokenOut.contractId, maxHops);
+    const paths = this.findAllPaths(
+      tokenIn.contractId,
+      tokenOut.contractId,
+      maxHops
+    );
     if (paths.length === 0) return null;
 
     const routes: Route[] = [];
@@ -124,7 +134,7 @@ export class DexterityGraph {
         const route = await this.buildRoute(path, amountIn);
         if (route) routes.push(route);
       } catch (error) {
-        console.warn('Error building route:', error);
+        console.warn("Error building route:", error);
       }
     }
 
@@ -173,7 +183,10 @@ export class DexterityGraph {
    * Route Building
    */
 
-  private async buildRoute(path: Token[], amountIn: number): Promise<Route | null> {
+  private async buildRoute(
+    path: Token[],
+    amountIn: number
+  ): Promise<Route | null> {
     if (path.length < 2) return null;
 
     const hops: RouteHop[] = [];
@@ -187,7 +200,9 @@ export class DexterityGraph {
       if (!edge) return null;
 
       // Get quote for this hop
-      const opcode = new OpcodeBuilder().setOperation(OperationType.SWAP_A_TO_B).build();
+      const opcode = new OpcodeBuilder()
+        .setOperation(OperationType.SWAP_A_TO_B)
+        .build();
 
       try {
         const quote = await this.sdk.getQuote(edge.pool, currentAmount, opcode);
@@ -198,14 +213,14 @@ export class DexterityGraph {
           tokenOut,
           quote: {
             amountIn: currentAmount,
-            amountOut: quote.dy.value
-          }
+            amountOut: quote.dy.value,
+          },
         };
 
         hops.push(hop);
         currentAmount = quote.dy.value;
       } catch (error) {
-        console.error('Error getting quote for hop:', error);
+        console.error("Error getting quote for hop:", error);
         return null;
       }
     }
@@ -220,7 +235,7 @@ export class DexterityGraph {
       hops,
       expectedOutput,
       priceImpact,
-      totalFees
+      totalFees,
     };
   }
 

@@ -1,5 +1,5 @@
-import { bufferCV } from '@stacks/transactions';
-import { hexToBytes } from '@stacks/common';
+import { bufferCV } from "@stacks/transactions";
+import { hexToBytes } from "@stacks/common";
 
 /**
  * Core Operation Types (Byte 0)
@@ -8,7 +8,7 @@ export enum OperationType {
   SWAP_A_TO_B = 0x00,
   SWAP_B_TO_A = 0x01,
   ADD_LIQUIDITY = 0x02,
-  REMOVE_LIQUIDITY = 0x03
+  REMOVE_LIQUIDITY = 0x03,
 }
 
 /**
@@ -16,7 +16,7 @@ export enum OperationType {
  */
 export enum SwapType {
   EXACT_INPUT = 0x00,
-  EXACT_OUTPUT = 0x01
+  EXACT_OUTPUT = 0x01,
 }
 
 /**
@@ -26,7 +26,7 @@ export enum FeeType {
   DEFAULT = 0x00,
   REDUCED = 0x01,
   DYNAMIC = 0x02,
-  ORACLE = 0x03
+  ORACLE = 0x03,
 }
 
 /**
@@ -37,7 +37,7 @@ export enum LiquidityType {
   SINGLE_SIDED_A = 0x01,
   SINGLE_SIDED_B = 0x02,
   ORACLE_WEIGHTED = 0x03,
-  IMBALANCED = 0x04
+  IMBALANCED = 0x04,
 }
 
 /**
@@ -125,7 +125,9 @@ export class OpcodeBuilder {
   /**
    * Concentrated Liquidity
    */
-  setConcentratedLiquidity(params: Partial<ConcentratedLiquidityParams>): OpcodeBuilder {
+  setConcentratedLiquidity(
+    params: Partial<ConcentratedLiquidityParams>
+  ): OpcodeBuilder {
     this.buffer[12] = params.tickLower || 0;
     this.buffer[13] = params.tickUpper || 0;
     return this;
@@ -145,8 +147,8 @@ export class OpcodeBuilder {
    */
   toHex(): string {
     return Array.from(this.buffer)
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
   }
 
   /**
@@ -228,7 +230,9 @@ export const Presets = {
       .setOracleParams(params);
   },
 
-  concentratedLiquidity(params: Partial<ConcentratedLiquidityParams>): OpcodeBuilder {
+  concentratedLiquidity(
+    params: Partial<ConcentratedLiquidityParams>
+  ): OpcodeBuilder {
     return new OpcodeBuilder()
       .setOperation(OperationType.ADD_LIQUIDITY)
       .setLiquidityType(LiquidityType.BALANCED)
@@ -240,7 +244,7 @@ export const Presets = {
       .setOperation(OperationType.SWAP_A_TO_B)
       .setSwapType(SwapType.EXACT_INPUT)
       .setLimitOrderParams(params);
-  }
+  },
 };
 
 /**

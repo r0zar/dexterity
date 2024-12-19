@@ -1,4 +1,4 @@
-import type { Token } from './types';
+import { Token } from "../types";
 
 export interface ContractConfig {
   tokenA: Token;
@@ -43,7 +43,7 @@ export class ContractGenerator {
       lpTokenSymbol: config.lpTokenSymbol,
       lpRebatePercent: config.lpRebatePercent,
       initialLiquidityA: config.initialLiquidityA,
-      initialLiquidityB: config.initialLiquidityB
+      initialLiquidityB: config.initialLiquidityB,
     };
 
     return this.generateContractCode(params);
@@ -61,14 +61,16 @@ export class ContractGenerator {
       lpTokenSymbol,
       lpRebatePercent,
       initialLiquidityA,
-      initialLiquidityB
+      initialLiquidityB,
     } = params;
 
     // Check which token is STX (if any)
-    const isTokenAStx = tokenAContract === '.stx';
-    const isTokenBStx = tokenBContract === '.stx';
+    const isTokenAStx = tokenAContract === ".stx";
+    const isTokenBStx = tokenBContract === ".stx";
 
-    const lpRebateRaw = Math.floor((parseFloat(lpRebatePercent.toString()) / 100) * 1000000);
+    const lpRebateRaw = Math.floor(
+      (parseFloat(lpRebatePercent.toString()) / 100) * 1000000
+    );
 
     // Determine initial liquidity distribution
     const baseAmount = Math.min(initialLiquidityA, initialLiquidityB);
@@ -98,7 +100,11 @@ export class ContractGenerator {
         ? `(try! (as-contract (stx-transfer? ${amount} ${sender} ${recipient})))`
         : `(try! (as-contract (contract-call? '${tokenContract} transfer ${amount} ${sender} ${recipient} none)))`;
 
-    const getBalance = (isStx: boolean, tokenContract: string, owner: string) =>
+    const getBalance = (
+      isStx: boolean,
+      tokenContract: string,
+      owner: string
+    ) =>
       isStx
         ? `(stx-get-balance ${owner})`
         : `(unwrap-panic (contract-call? '${tokenContract} get-balance ${owner}))`;
@@ -192,9 +198,21 @@ export class ContractGenerator {
         (sender tx-sender)
         (delta (get-swap-quote amount (some OP_SWAP_A_TO_B))))
         ;; Transfer token A to pool
-        ${generateTransferIn(isTokenAStx, tokenAContract, 'amount', 'sender', 'CONTRACT')}
+        ${generateTransferIn(
+          isTokenAStx,
+          tokenAContract,
+          "amount",
+          "sender",
+          "CONTRACT"
+        )}
         ;; Transfer token B to sender
-        ${generateTransferOut(isTokenBStx, tokenBContract, '(get dy delta)', 'CONTRACT', 'sender')}
+        ${generateTransferOut(
+          isTokenBStx,
+          tokenBContract,
+          "(get dy delta)",
+          "CONTRACT",
+          "sender"
+        )}
         (ok delta)))
 
 (define-public (swap-b-to-a (amount uint))
@@ -202,17 +220,41 @@ export class ContractGenerator {
         (sender tx-sender)
         (delta (get-swap-quote amount (some OP_SWAP_B_TO_A))))
         ;; Transfer token B to pool
-        ${generateTransferIn(isTokenBStx, tokenBContract, 'amount', 'sender', 'CONTRACT')}
+        ${generateTransferIn(
+          isTokenBStx,
+          tokenBContract,
+          "amount",
+          "sender",
+          "CONTRACT"
+        )}
         ;; Transfer token A to sender
-        ${generateTransferOut(isTokenAStx, tokenAContract, '(get dy delta)', 'CONTRACT', 'sender')}
+        ${generateTransferOut(
+          isTokenAStx,
+          tokenAContract,
+          "(get dy delta)",
+          "CONTRACT",
+          "sender"
+        )}
         (ok delta)))
 
 (define-public (add-liquidity (amount uint))
     (let (
         (sender tx-sender)
         (delta (get-liquidity-quote amount)))
-        ${generateTransferIn(isTokenAStx, tokenAContract, '(get dx delta)', 'sender', 'CONTRACT')}
-        ${generateTransferIn(isTokenBStx, tokenBContract, '(get dy delta)', 'sender', 'CONTRACT')}
+        ${generateTransferIn(
+          isTokenAStx,
+          tokenAContract,
+          "(get dx delta)",
+          "sender",
+          "CONTRACT"
+        )}
+        ${generateTransferIn(
+          isTokenBStx,
+          tokenBContract,
+          "(get dy delta)",
+          "sender",
+          "CONTRACT"
+        )}
         (try! (ft-mint? ${lpTokenSymbol} (get dk delta) sender))
         (ok delta)))
 
@@ -221,8 +263,20 @@ export class ContractGenerator {
         (sender tx-sender)
         (delta (get-liquidity-quote amount)))
         (try! (ft-burn? ${lpTokenSymbol} (get dk delta) sender))
-        ${generateTransferOut(isTokenAStx, tokenAContract, '(get dx delta)', 'CONTRACT', 'sender')}
-        ${generateTransferOut(isTokenBStx, tokenBContract, '(get dy delta)', 'CONTRACT', 'sender')}
+        ${generateTransferOut(
+          isTokenAStx,
+          tokenAContract,
+          "(get dx delta)",
+          "CONTRACT",
+          "sender"
+        )}
+        ${generateTransferOut(
+          isTokenBStx,
+          tokenBContract,
+          "(get dy delta)",
+          "CONTRACT",
+          "sender"
+        )}
         (ok delta)))
 
 ;; --- Helper Functions ---
@@ -232,8 +286,8 @@ export class ContractGenerator {
 
 (define-private (get-reserves)
     { 
-      a: ${getBalance(isTokenAStx, tokenAContract, 'CONTRACT')}, 
-      b: ${getBalance(isTokenBStx, tokenBContract, 'CONTRACT')}
+      a: ${getBalance(isTokenAStx, tokenAContract, "CONTRACT")}, 
+      b: ${getBalance(isTokenBStx, tokenBContract, "CONTRACT")}
     })
 
 ;; --- Quote Functions ---
@@ -282,8 +336,8 @@ export class ContractGenerator {
       isTokenAStx,
       tokenAContract,
       `u${additionalTokenA}`,
-      'tx-sender',
-      'CONTRACT'
+      "tx-sender",
+      "CONTRACT"
     )}`;
     }
 
@@ -295,8 +349,8 @@ export class ContractGenerator {
       isTokenBStx,
       tokenBContract,
       `u${additionalTokenB}`,
-      'tx-sender',
-      'CONTRACT'
+      "tx-sender",
+      "CONTRACT"
     )}`;
     }
 
@@ -328,10 +382,13 @@ export class ContractGenerator {
   }
 
   private static sanitizeContractName(name: string): string {
-    return name.toLowerCase().replace(/[^a-zA-Z0-9-]/g, '');
+    return name.toLowerCase().replace(/[^a-zA-Z0-9-]/g, "");
   }
 
-  private static getFullContractName(contractName: string, address: string): string {
+  private static getFullContractName(
+    contractName: string,
+    address: string
+  ): string {
     return `${address}.${contractName}`;
   }
 
