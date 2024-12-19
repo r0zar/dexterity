@@ -136,7 +136,7 @@ export class DexteritySDK {
     return token;
   }
 
-  getVaultForPool(poolId: string): any {
+  getVault(poolId: string): any {
     this.checkInitialization();
     const vault = this.graph!.getVault(poolId);
     if (!vault) {

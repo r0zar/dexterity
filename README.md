@@ -67,7 +67,7 @@ const sdk = new DexteritySDK({
 await sdk.initialize();
 
 // Get a specific vault from the graph
-const vault = sdk.getVaultForPool("SP123...ABC.pool-token");
+const vault = sdk.getVault("SP123...ABC.pool-token");
 
 // Build a transaction directly on the vault
 const tx = await vault.buildTransaction(
@@ -99,7 +99,7 @@ const pools = sdk.getAllPools();
 const tokensInPool = sdk.getPoolsForToken(tokenId);
 
 // Get a specific vault to work with
-const vault = sdk.getVaultForPool(poolId);
+const vault = sdk.getVault(poolId);
 
 // Build transactions directly on the vault
 const tx = await vault.buildTransaction(
