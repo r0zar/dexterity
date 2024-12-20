@@ -379,7 +379,6 @@ export async function discoverVaults(
 
     // Process each contract
     for (const contract of response.data.results) {
-      console.log(contract);
       // Skip excluded pools
       if (excludePools.includes(contract.contract_id)) {
         continue;
