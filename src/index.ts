@@ -1,8 +1,8 @@
 import "dotenv/config";
-import { DexterityGraph, Route, GraphConfig } from "./lib/graph";
 import { discoverVaults, type ContractSearchParams } from "./lib/search";
-import { Opcode, Presets } from "./lib/opcode";
-import type { Token, TransactionConfig, SDKConfig, LPToken } from "./types";
+import { Presets } from "./lib/opcode";
+import { TradeEngine, type EngineConfig } from "./lib/engine";
+import type { Token, TransactionConfig, SDKConfig } from "./types";
 
 interface SwapOptions {
   slippagePercent?: number;
@@ -19,7 +19,7 @@ interface LiquidityOptions {
 export class DexteritySDK {
   private network: any;
   private stxAddress: string;
-  private graph: DexterityGraph | null = null;
+  private engine: TradeEngine | null = null;
   private defaultSlippage: number;
 
   constructor(config: SDKConfig) {
@@ -33,17 +33,20 @@ export class DexteritySDK {
    */
   async initialize(
     searchParams?: ContractSearchParams,
-    graphConfig?: GraphConfig
-  ): Promise<void> {
-    // Discover vaults
+    engineConfig?: Partial<EngineConfig>
+  ): Promise<TradeEngine> {
     const { vaults } = await discoverVaults(
       this.network,
       this.defaultSlippage,
       searchParams
     );
 
-    // Initialize graph with discovered vaults
-    this.graph = await DexterityGraph.fromVaults(vaults, graphConfig);
+    this.engine = await TradeEngine.fromVaults(vaults, {
+      network: this.network,
+      defaultSlippage: this.defaultSlippage,
+      ...engineConfig,
+    });
+    return this.engine;
   }
 
   /**
@@ -57,43 +60,47 @@ export class DexteritySDK {
   ): Promise<TransactionConfig> {
     this.checkInitialization();
 
-    // Get tokens from graph
     const tokenIn = await this.getTokenInfo(tokenInId);
     const tokenOut = await this.getTokenInfo(tokenOutId);
 
-    // If custom path provided, validate and use it
     if (options.customPath) {
-      return this.buildCustomPathSwap(amount, options.customPath, options);
+      const tokens = await Promise.all(
+        options.customPath.map((id) => this.getTokenInfo(id))
+      );
+
+      if (tokens.length < 2) {
+        throw new Error("Path must contain at least 2 tokens");
+      }
+
+      if (
+        tokens[0].contractId !== tokenIn.contractId ||
+        tokens[tokens.length - 1].contractId !== tokenOut.contractId
+      ) {
+        throw new Error(
+          "Custom path must start with tokenIn and end with tokenOut"
+        );
+      }
     }
 
-    // Find best route
-    const route = await this.graph!.findBestRoute(
-      tokenIn,
-      tokenOut,
-      amount,
-      this.stxAddress
-    );
-
-    if (!route) {
-      throw new Error(`No route found from ${tokenInId} to ${tokenOutId}`);
-    }
-
-    return this.buildRouteTransaction(route, amount, options);
+    return this.engine!.buildTrade(tokenIn, tokenOut, amount, this.stxAddress, {
+      slippage: options.slippagePercent,
+      maxHops: options.maxHops,
+    });
   }
 
   /**
    * Liquidity Management
    */
   async buildAddLiquidity(
-    poolId: string,
+    vaultId: string,
     amount: number,
     options: LiquidityOptions = {}
   ): Promise<TransactionConfig> {
     this.checkInitialization();
 
-    const vault = this.graph!.getVault(poolId);
+    const vault = this.getVault(vaultId);
     if (!vault) {
-      throw new Error(`Pool ${poolId} not found`);
+      throw new Error(`Vault ${vaultId} not found`);
     }
 
     return vault.buildTransaction(
@@ -105,15 +112,15 @@ export class DexteritySDK {
   }
 
   async buildRemoveLiquidity(
-    poolId: string,
+    vaultId: string,
     amount: number,
     options: LiquidityOptions = {}
   ): Promise<TransactionConfig> {
     this.checkInitialization();
 
-    const vault = this.graph!.getVault(poolId);
+    const vault = this.getVault(vaultId);
     if (!vault) {
-      throw new Error(`Pool ${poolId} not found`);
+      throw new Error(`Vault ${vaultId} not found`);
     }
 
     return vault.buildTransaction(
@@ -125,177 +132,64 @@ export class DexteritySDK {
   }
 
   /**
-   * Helper Methods
+   * Token Methods
    */
   async getTokenInfo(contractId: string): Promise<Token> {
     this.checkInitialization();
-    const token = this.graph!.getToken(contractId);
+    const token = this.engine!.getToken(contractId);
     if (!token) {
-      throw new Error(`Token ${contractId} not found in graph`);
+      throw new Error(`Token ${contractId} not found`);
     }
     return token;
   }
 
-  getVault(poolId: string): any {
+  getAllTokens(): Token[] {
     this.checkInitialization();
-    const vault = this.graph!.getVault(poolId);
+    return this.engine!.getAllTokens();
+  }
+
+  /**
+   * Vault Methods
+   */
+  getVault(vaultId: string): any {
+    this.checkInitialization();
+    const vault = this.engine!.getVault(vaultId);
     if (!vault) {
-      throw new Error(`Pool ${poolId} not found in graph`);
+      throw new Error(`Vault ${vaultId} not found`);
     }
     return vault;
   }
 
-  /**
-   * Private Helper Methods
-   */
-  private async buildRouteTransaction(
-    route: Route,
-    amount: number,
-    options: SwapOptions
-  ): Promise<TransactionConfig> {
-    // For single hop swaps, use the vault directly
-    if (route.hops.length === 1) {
-      const hop = route.hops[0];
-      const isAToB =
-        hop.tokenIn.contractId === hop.pool.liquidity[0].token.contractId;
-      const opcode = isAToB
-        ? Presets.swapExactAForB()
-        : Presets.swapExactBForA();
-
-      return hop.vault.buildTransaction(
-        this.stxAddress,
-        amount,
-        opcode,
-        options.slippagePercent ?? this.defaultSlippage
-      );
-    }
-
-    // For multi-hop swaps, build a multi-hop transaction
-    const hops = route.hops.map((hop) => ({
-      vault: hop.vault,
-      opcode:
-        hop.tokenIn.contractId === hop.pool.liquidity[0].token.contractId
-          ? Presets.swapExactAForB()
-          : Presets.swapExactBForA(),
-    }));
-
-    return this.buildMultiHopTransaction(
-      route.path,
-      hops,
-      amount,
-      options.slippagePercent ?? this.defaultSlippage
-    );
-  }
-
-  private async buildCustomPathSwap(
-    amount: number,
-    path: string[],
-    options: SwapOptions
-  ): Promise<TransactionConfig> {
-    // Validate each token exists in the graph
-    const tokens = await Promise.all(path.map((id) => this.getTokenInfo(id)));
-    const route = await this.validateAndBuildRoute(tokens, amount);
-
-    if (!route) {
-      throw new Error("Invalid custom path - no valid route found");
-    }
-
-    return this.buildRouteTransaction(route, amount, options);
-  }
-
-  private async validateAndBuildRoute(
-    tokens: Token[],
-    amount: number
-  ): Promise<Route | null> {
+  getAllVaults(): any[] {
     this.checkInitialization();
-
-    if (tokens.length < 2) {
-      throw new Error("Path must contain at least 2 tokens");
-    }
-
-    // Find route through specified path
-    return this.graph!.findBestRoute(
-      tokens[0],
-      tokens[tokens.length - 1],
-      amount,
-      this.stxAddress
-    );
+    return this.engine!.getAllVaults();
   }
 
-  private async buildMultiHopTransaction(
-    path: Token[],
-    hops: { vault: any; opcode: Opcode }[],
-    amount: number,
-    slippagePercent: number
-  ): Promise<TransactionConfig> {
-    // Implementation to be added
-    throw new Error("Multi-hop transactions not implemented");
-  }
-
-  private checkInitialization() {
-    if (!this.graph) {
-      throw new Error("SDK not initialized. Call initialize() first.");
-    }
-  }
-
-  /**
-   * Public Utility Methods
-   */
-  isInitialized(): boolean {
-    return this.graph !== null;
-  }
-
-  /**
-   * Gets all available tokens in the graph
-   */
-  getAllTokens(): Token[] {
+  getVaultsForToken(tokenId: string): any[] {
     this.checkInitialization();
-    return this.graph!.getTokens();
+    return this.engine!.getVaultsForToken(tokenId);
   }
 
   /**
-   * Gets all available pools in the graph
-   */
-  getAllPools(): LPToken[] {
-    this.checkInitialization();
-    return this.graph!.getPools();
-  }
-
-  /**
-   * Gets pools that contain a specific token
-   */
-  getPoolsForToken(tokenId: string): LPToken[] {
-    this.checkInitialization();
-    return this.graph!.getPoolsForToken(tokenId);
-  }
-
-  /**
-   * Gets the underlying graph object
-   */
-  getGraph(): DexterityGraph {
-    this.checkInitialization();
-    return this.graph!;
-  }
-
-  /**
-   * Gets a quote for a swap
+   * Quote Methods
    */
   async getQuote(
     tokenInId: string,
     tokenOutId: string,
     amount: number,
     options: SwapOptions = {}
-  ): Promise<{ route: Route; quote: any }> {
+  ): Promise<{ route: any; quote: any }> {
     this.checkInitialization();
 
     const tokenIn = await this.getTokenInfo(tokenInId);
     const tokenOut = await this.getTokenInfo(tokenOutId);
 
-    const route = await this.graph!.findBestRoute(
+    const route = await this.engine!.findBestRoute(
       tokenIn,
       tokenOut,
       amount,
-      this.stxAddress
+      this.stxAddress,
+      options.maxHops
     );
 
     if (!route) {
@@ -312,6 +206,19 @@ export class DexteritySDK {
       },
     };
   }
+
+  /**
+   * Utility Methods
+   */
+  isInitialized(): boolean {
+    return this.engine !== null;
+  }
+
+  private checkInitialization() {
+    if (!this.engine) {
+      throw new Error("SDK not initialized. Call initialize() first.");
+    }
+  }
 }
 
 // Export types and utilities
@@ -322,5 +229,5 @@ export type {
   SwapOptions,
   LiquidityOptions,
   ContractSearchParams,
-  GraphConfig,
+  EngineConfig,
 };

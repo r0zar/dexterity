@@ -2,9 +2,11 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { DexteritySDK } from "../src/index";
 import { STACKS_TESTNET } from "@stacks/network";
 import { LPToken } from "../src/types";
+import { TradeEngine } from "../src/lib/engine";
 
 describe("DexteritySDK", () => {
   let sdk: DexteritySDK;
+  let engine: TradeEngine;
   const testAddress = "ST2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2SYCBMRR";
   const network = STACKS_TESTNET;
 
@@ -63,12 +65,11 @@ describe("DexteritySDK", () => {
     };
 
     // Initialize SDK (this will discover vaults and build the graph)
-    await sdk.initialize(mockSearchParams);
+    engine = await sdk.initialize(mockSearchParams);
   });
 
   describe("Initialization", () => {
     it("should initialize successfully", () => {
-      console.log(sdk.getGraph());
       expect(sdk.isInitialized()).toBe(true);
     });
 
@@ -98,7 +99,7 @@ describe("DexteritySDK", () => {
 
       expect(tx).toBeDefined();
       expect(tx.network).toBe(network);
-      expect(tx.functionName).toBe("execute");
+      expect(tx.functionName).toBe("swap-1");
     });
 
     it("should build a swap with custom options", async () => {
@@ -115,7 +116,7 @@ describe("DexteritySDK", () => {
 
       expect(tx).toBeDefined();
       expect(tx.network).toBe(network);
-      expect(tx.functionName).toBe("execute");
+      expect(tx.functionName).toBe("swap-1");
     });
 
     it("should build a swap with custom path", async () => {
