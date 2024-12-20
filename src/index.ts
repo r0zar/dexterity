@@ -24,7 +24,7 @@ export class DexteritySDK {
 
   constructor(config: SDKConfig) {
     this.network = config.network;
-    this.stxAddress = config.stxAddress;
+    this.stxAddress = config?.stxAddress;
     this.defaultSlippage = config.defaultSlippage || 0.5;
   }
 
