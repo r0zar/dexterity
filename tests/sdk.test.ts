@@ -146,6 +146,7 @@ describe("DexteritySDK", () => {
   describe("Liquidity Operations", () => {
     it("should build an add liquidity transaction", async () => {
       const tx = await sdk.buildAddLiquidity(
+        testAddress,
         testPool.contractId,
         1000000 // 1 token worth
       );
@@ -157,6 +158,7 @@ describe("DexteritySDK", () => {
 
     it("should build a remove liquidity transaction", async () => {
       const tx = await sdk.buildRemoveLiquidity(
+        testAddress,
         testPool.contractId,
         1000000 // 1 LP token
       );
@@ -167,9 +169,14 @@ describe("DexteritySDK", () => {
     });
 
     it("should build liquidity operations with custom slippage", async () => {
-      const tx = await sdk.buildAddLiquidity(testPool.contractId, 1000000, {
-        slippagePercent: 1,
-      });
+      const tx = await sdk.buildAddLiquidity(
+        testAddress,
+        testPool.contractId,
+        1000000,
+        {
+          slippagePercent: 1,
+        }
+      );
 
       expect(tx).toBeDefined();
       expect(tx.network).toBe(network);
@@ -186,7 +193,7 @@ describe("DexteritySDK", () => {
 
     it("should throw error for invalid pool ID", async () => {
       await expect(
-        sdk.buildAddLiquidity("invalid.pool", 1000000)
+        sdk.buildAddLiquidity(testAddress, "invalid.pool", 1000000)
       ).rejects.toThrow();
     });
 

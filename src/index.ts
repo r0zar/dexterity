@@ -33,13 +33,11 @@ export const discoverPools = async (config: ContractSearchParams) => {
 
 export class DexteritySDK {
   private network: any;
-  private stxAddress: string | null = null;
   private engine: TradeEngine | null = null;
   private defaultSlippage: number;
 
   constructor(config: SDKConfig) {
     this.network = config.network;
-    this.stxAddress = config.stxAddress || null;
     this.defaultSlippage = config.defaultSlippage || 0.5;
   }
 
@@ -61,21 +59,6 @@ export class DexteritySDK {
     });
     return this.engine;
   }
-
-  /**
-   * Sets or updates the sender address
-   */
-  setSender(stxAddress: string) {
-    this.stxAddress = stxAddress;
-  }
-
-  /**
-   * Gets the current sender address
-   */
-  getSender(): string | null {
-    return this.stxAddress;
-  }
-
   /**
    * Core Trading Functions
    */
@@ -86,7 +69,6 @@ export class DexteritySDK {
     options: SwapOptions = {}
   ): Promise<TransactionConfig> {
     this.checkInitialization();
-    this.checkSender();
 
     const tokenIn = await this.getTokenInfo(tokenInId);
     const tokenOut = await this.getTokenInfo(tokenOutId);
@@ -110,28 +92,22 @@ export class DexteritySDK {
       }
     }
 
-    return this.engine!.buildTrade(
-      tokenIn,
-      tokenOut,
-      amount,
-      this.stxAddress!,
-      {
-        slippage: options.slippagePercent,
-        maxHops: options.maxHops,
-      }
-    );
+    return this.engine!.buildTrade(tokenIn, tokenOut, amount, {
+      slippage: options.slippagePercent,
+      maxHops: options.maxHops,
+    });
   }
 
   /**
    * Liquidity Management
    */
   async buildAddLiquidity(
+    sender: string,
     vaultId: string,
     amount: number,
     options: LiquidityOptions = {}
   ): Promise<TransactionConfig> {
     this.checkInitialization();
-    this.checkSender();
 
     const vault = this.getVault(vaultId);
     if (!vault) {
@@ -139,7 +115,7 @@ export class DexteritySDK {
     }
 
     return vault.buildTransaction(
-      this.stxAddress!,
+      sender,
       amount,
       Presets.addBalancedLiquidity(),
       options.slippagePercent ?? this.defaultSlippage
@@ -147,12 +123,12 @@ export class DexteritySDK {
   }
 
   async buildRemoveLiquidity(
+    sender: string,
     vaultId: string,
     amount: number,
     options: LiquidityOptions = {}
   ): Promise<TransactionConfig> {
     this.checkInitialization();
-    this.checkSender();
 
     const vault = this.getVault(vaultId);
     if (!vault) {
@@ -160,7 +136,7 @@ export class DexteritySDK {
     }
 
     return vault.buildTransaction(
-      this.stxAddress!,
+      sender,
       amount,
       Presets.removeLiquidity(),
       options.slippagePercent ?? this.defaultSlippage
@@ -224,7 +200,6 @@ export class DexteritySDK {
       tokenIn,
       tokenOut,
       amount,
-      this.stxAddress || "SP000000000000000000002Q6VF78", // Use dummy address if not set
       options.maxHops
     );
 
@@ -255,12 +230,6 @@ export class DexteritySDK {
       throw new Error(
         "SDK not initialized. Call initializeWithVaults() first."
       );
-    }
-  }
-
-  private checkSender() {
-    if (!this.stxAddress) {
-      throw new Error("Sender address not set. Call setSender() first.");
     }
   }
 }

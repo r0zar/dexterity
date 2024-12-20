@@ -30,14 +30,14 @@ export class Vault {
   /**
    * Core quote functionality that maps directly to contract
    */
-  async quote(sender: string, amount: number, opcode: Opcode): Promise<Quote> {
+  async quote(amount: number, opcode: Opcode): Promise<Quote> {
     // Call contract quote function
     const response = await fetchCallReadOnlyFunction({
       contractAddress: this.pool.contractId.split(".")[0],
       contractName: this.pool.contractId.split(".")[1],
       functionName: "quote",
       functionArgs: [uintCV(Math.floor(amount)), optionalCVOf(opcode.build())],
-      senderAddress: sender,
+      senderAddress: this.pool.contractId,
       network: this.network,
     });
 
@@ -59,7 +59,7 @@ export class Vault {
     slippage: number = this.slippage
   ): Promise<TransactionConfig> {
     // Get quote for post conditions
-    const quote = await this.quote(sender, amount, opcode);
+    const quote = await this.quote(amount, opcode);
 
     // Build post conditions based on operation
     const postConditions = this.buildPostConditions(

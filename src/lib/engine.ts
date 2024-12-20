@@ -97,7 +97,6 @@ export class TradeEngine {
     tokenIn: Token,
     tokenOut: Token,
     amount: number,
-    sender: string,
     options: {
       slippage?: number;
       maxHops?: number;
@@ -109,13 +108,7 @@ export class TradeEngine {
       this.config.maxHops!
     );
 
-    const route = await this.findBestRoute(
-      tokenIn,
-      tokenOut,
-      amount,
-      sender,
-      maxHops
-    );
+    const route = await this.findBestRoute(tokenIn, tokenOut, amount, maxHops);
 
     if (!route) {
       throw new Error(
@@ -123,7 +116,7 @@ export class TradeEngine {
       );
     }
 
-    return this.buildRouteTransaction(route, amount, sender, slippage!);
+    return this.buildRouteTransaction(route, amount, slippage!);
   }
 
   /**
@@ -133,7 +126,6 @@ export class TradeEngine {
     tokenIn: Token,
     tokenOut: Token,
     amount: number,
-    sender: string = this.config.stxAddress!,
     maxHops: number = this.config.maxHops!
   ): Promise<Route | null> {
     const paths = this.findAllPaths(
@@ -148,7 +140,7 @@ export class TradeEngine {
 
     for (const path of paths) {
       try {
-        const route = await this.buildRoute(path, amount, sender);
+        const route = await this.buildRoute(path, amount);
         if (route) routes.push(route);
       } catch (error) {
         console.warn("Error building route:", error);
@@ -295,8 +287,7 @@ export class TradeEngine {
 
   private async buildRoute(
     path: Token[],
-    amount: number,
-    sender: string = this.config.stxAddress!
+    amount: number
   ): Promise<Route | null> {
     if (path.length < 2) return null;
 
@@ -312,7 +303,7 @@ export class TradeEngine {
       const opcode = new Opcode().setOperation(OperationType.SWAP_A_TO_B);
 
       try {
-        const quote = await edge.vault.quote(sender, currentAmount, opcode);
+        const quote = await edge.vault.quote(currentAmount, opcode);
 
         const hop: RouteHop = {
           vault: edge.vault,
@@ -348,7 +339,6 @@ export class TradeEngine {
   private async buildRouteTransaction(
     route: Route,
     amount: number,
-    sender: string = this.config.stxAddress!,
     slippage: number
   ): Promise<TransactionConfig> {
     if (
@@ -374,7 +364,12 @@ export class TradeEngine {
       functionName: `swap-${route.hops.length}`,
       functionArgs: [amount, ...hopArgs],
       postConditionMode: PostConditionMode.Deny,
-      postConditions: this.buildPostConditions(route, amount, sender, slippage),
+      postConditions: this.buildPostConditions(
+        route,
+        amount,
+        this.config.stxAddress,
+        slippage
+      ),
     };
   }
 
