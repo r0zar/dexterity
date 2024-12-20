@@ -152,10 +152,8 @@ export enum ErrorCode {
 
 export interface SDKConfig {
   network: any;
-  stxAddress: string;
+  stxAddress?: string | null;
   defaultSlippage?: number;
-  defaultDeadline?: number;
-  referralAddress?: string;
 }
 
 export interface RouterConfig {

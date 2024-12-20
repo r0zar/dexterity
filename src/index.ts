@@ -18,13 +18,13 @@ interface LiquidityOptions {
 
 export class DexteritySDK {
   private network: any;
-  private stxAddress: string;
+  private stxAddress: string | null = null;
   private engine: TradeEngine | null = null;
   private defaultSlippage: number;
 
   constructor(config: SDKConfig) {
     this.network = config.network;
-    this.stxAddress = config?.stxAddress;
+    this.stxAddress = config.stxAddress || null;
     this.defaultSlippage = config.defaultSlippage || 0.5;
   }
 
@@ -50,7 +50,30 @@ export class DexteritySDK {
   }
 
   /**
-   * Core Trading Functions
+   * Sets or updates the sender address
+   */
+  setSender(stxAddress: string) {
+    this.stxAddress = stxAddress;
+  }
+
+  /**
+   * Gets the current sender address
+   */
+  getSender(): string | null {
+    return this.stxAddress;
+  }
+
+  /**
+   * Check if sender is set for operations that require it
+   */
+  private checkSender() {
+    if (!this.stxAddress) {
+      throw new Error("Sender address not set. Call setSender() first.");
+    }
+  }
+
+  /**
+   * Core Trading Functions that require sender
    */
   async buildSwap(
     amount: number,
@@ -59,6 +82,7 @@ export class DexteritySDK {
     options: SwapOptions = {}
   ): Promise<TransactionConfig> {
     this.checkInitialization();
+    this.checkSender();
 
     const tokenIn = await this.getTokenInfo(tokenInId);
     const tokenOut = await this.getTokenInfo(tokenOutId);
@@ -82,21 +106,25 @@ export class DexteritySDK {
       }
     }
 
-    return this.engine!.buildTrade(tokenIn, tokenOut, amount, this.stxAddress, {
-      slippage: options.slippagePercent,
-      maxHops: options.maxHops,
-    });
+    return this.engine!.buildTrade(
+      tokenIn,
+      tokenOut,
+      amount,
+      this.stxAddress!,
+      {
+        slippage: options.slippagePercent,
+        maxHops: options.maxHops,
+      }
+    );
   }
 
-  /**
-   * Liquidity Management
-   */
   async buildAddLiquidity(
     vaultId: string,
     amount: number,
     options: LiquidityOptions = {}
   ): Promise<TransactionConfig> {
     this.checkInitialization();
+    this.checkSender();
 
     const vault = this.getVault(vaultId);
     if (!vault) {
@@ -104,7 +132,7 @@ export class DexteritySDK {
     }
 
     return vault.buildTransaction(
-      this.stxAddress,
+      this.stxAddress!,
       amount,
       Presets.addBalancedLiquidity(),
       options.slippagePercent ?? this.defaultSlippage
@@ -117,6 +145,7 @@ export class DexteritySDK {
     options: LiquidityOptions = {}
   ): Promise<TransactionConfig> {
     this.checkInitialization();
+    this.checkSender();
 
     const vault = this.getVault(vaultId);
     if (!vault) {
@@ -124,11 +153,51 @@ export class DexteritySDK {
     }
 
     return vault.buildTransaction(
-      this.stxAddress,
+      this.stxAddress!,
       amount,
       Presets.removeLiquidity(),
       options.slippagePercent ?? this.defaultSlippage
     );
+  }
+
+  /**
+   * Quote Methods (some can work without sender)
+   */
+  async getQuote(
+    tokenInId: string,
+    tokenOutId: string,
+    amount: number,
+    options: SwapOptions = {}
+  ): Promise<{ route: any; quote: any }> {
+    this.checkInitialization();
+
+    const tokenIn = await this.getTokenInfo(tokenInId);
+    const tokenOut = await this.getTokenInfo(tokenOutId);
+
+    // Use a dummy address if sender not set yet
+    const sender = this.stxAddress || "SP000000000000000000002Q6VF78";
+
+    const route = await this.engine!.findBestRoute(
+      tokenIn,
+      tokenOut,
+      amount,
+      sender,
+      options.maxHops
+    );
+
+    if (!route) {
+      throw new Error(`No route found from ${tokenInId} to ${tokenOutId}`);
+    }
+
+    return {
+      route,
+      quote: {
+        amountIn: amount,
+        amountOut: route.expectedOutput,
+        priceImpact: route.priceImpact,
+        path: route.path.map((token) => token.contractId),
+      },
+    };
   }
 
   /**
@@ -168,43 +237,6 @@ export class DexteritySDK {
   getVaultsForToken(tokenId: string): any[] {
     this.checkInitialization();
     return this.engine!.getVaultsForToken(tokenId);
-  }
-
-  /**
-   * Quote Methods
-   */
-  async getQuote(
-    tokenInId: string,
-    tokenOutId: string,
-    amount: number,
-    options: SwapOptions = {}
-  ): Promise<{ route: any; quote: any }> {
-    this.checkInitialization();
-
-    const tokenIn = await this.getTokenInfo(tokenInId);
-    const tokenOut = await this.getTokenInfo(tokenOutId);
-
-    const route = await this.engine!.findBestRoute(
-      tokenIn,
-      tokenOut,
-      amount,
-      this.stxAddress,
-      options.maxHops
-    );
-
-    if (!route) {
-      throw new Error(`No route found from ${tokenInId} to ${tokenOutId}`);
-    }
-
-    return {
-      route,
-      quote: {
-        amountIn: amount,
-        amountOut: route.expectedOutput,
-        priceImpact: route.priceImpact,
-        path: route.path.map((token) => token.contractId),
-      },
-    };
   }
 
   /**
