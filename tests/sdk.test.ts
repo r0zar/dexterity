@@ -1,12 +1,10 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { DexteritySDK } from "../src/index";
-import { STACKS_TESTNET } from "@stacks/network";
+import { DexteritySDK, scanVaults } from "../src/index";
+import { STACKS_MAINNET, STACKS_TESTNET } from "@stacks/network";
 import { LPToken } from "../src/types";
-import { TradeEngine } from "../src/lib/engine";
 
 describe("DexteritySDK", () => {
   let sdk: DexteritySDK;
-  let engine: TradeEngine;
   const testAddress = "ST2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2SYCBMRR";
   const network = STACKS_TESTNET;
 
@@ -58,14 +56,9 @@ describe("DexteritySDK", () => {
       defaultSlippage: 0.5,
     });
 
-    // Mock the contract discovery process for testing
-    const mockSearchParams = {
-      excludePools: ["ST2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2SYCBMRR.lp-token-rc3"],
-      limit: 1,
-    };
-
     // Initialize SDK (this will discover vaults and build the graph)
-    engine = await sdk.initialize(mockSearchParams);
+    const vaults = await scanVaults({ network: STACKS_TESTNET });
+    await sdk.initializeWithVaults(vaults);
   });
 
   describe("Initialization", () => {
@@ -205,4 +198,4 @@ describe("DexteritySDK", () => {
       ).rejects.toThrow();
     });
   });
-});
+}, 50000);

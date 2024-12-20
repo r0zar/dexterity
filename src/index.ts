@@ -1,8 +1,11 @@
-import "dotenv/config";
+// src/index.ts
+
 import { discoverVaults, type ContractSearchParams } from "./lib/search";
 import { Presets } from "./lib/opcode";
 import { TradeEngine, type EngineConfig } from "./lib/engine";
-import type { Token, TransactionConfig, SDKConfig } from "./types";
+import type { Token, TransactionConfig, SDKConfig, LPToken } from "./types";
+import { Vault } from "./lib/vault";
+import { STACKS_MAINNET, STACKS_TESTNET, StacksNetwork } from "@stacks/network";
 
 interface SwapOptions {
   slippagePercent?: number;
@@ -15,6 +18,18 @@ interface LiquidityOptions {
   slippagePercent?: number;
   deadline?: number;
 }
+
+/**
+ * Server-side discovery functions
+ */
+export const scanVaults = async (config: ContractSearchParams) => {
+  const { vaults } = await discoverVaults(
+    config.network || STACKS_MAINNET,
+    0.5,
+    config
+  );
+  return Array.from(vaults.values());
+};
 
 export class DexteritySDK {
   private network: any;
@@ -29,19 +44,17 @@ export class DexteritySDK {
   }
 
   /**
-   * Initialization
+   * Client-side initialization with pre-scanned vaults
    */
-  async initialize(
-    searchParams?: ContractSearchParams,
+  async initializeWithVaults(
+    vaults: Vault[],
     engineConfig?: Partial<EngineConfig>
   ): Promise<TradeEngine> {
-    const { vaults } = await discoverVaults(
-      this.network,
-      this.defaultSlippage,
-      searchParams
+    const vaultMap = new Map(
+      vaults.map((vault) => [vault.getPool().contractId, vault])
     );
 
-    this.engine = await TradeEngine.fromVaults(vaults, {
+    this.engine = await TradeEngine.fromVaults(vaultMap, {
       network: this.network,
       defaultSlippage: this.defaultSlippage,
       ...engineConfig,
@@ -64,16 +77,7 @@ export class DexteritySDK {
   }
 
   /**
-   * Check if sender is set for operations that require it
-   */
-  private checkSender() {
-    if (!this.stxAddress) {
-      throw new Error("Sender address not set. Call setSender() first.");
-    }
-  }
-
-  /**
-   * Core Trading Functions that require sender
+   * Core Trading Functions
    */
   async buildSwap(
     amount: number,
@@ -118,6 +122,9 @@ export class DexteritySDK {
     );
   }
 
+  /**
+   * Liquidity Management
+   */
   async buildAddLiquidity(
     vaultId: string,
     amount: number,
@@ -161,46 +168,6 @@ export class DexteritySDK {
   }
 
   /**
-   * Quote Methods (some can work without sender)
-   */
-  async getQuote(
-    tokenInId: string,
-    tokenOutId: string,
-    amount: number,
-    options: SwapOptions = {}
-  ): Promise<{ route: any; quote: any }> {
-    this.checkInitialization();
-
-    const tokenIn = await this.getTokenInfo(tokenInId);
-    const tokenOut = await this.getTokenInfo(tokenOutId);
-
-    // Use a dummy address if sender not set yet
-    const sender = this.stxAddress || "SP000000000000000000002Q6VF78";
-
-    const route = await this.engine!.findBestRoute(
-      tokenIn,
-      tokenOut,
-      amount,
-      sender,
-      options.maxHops
-    );
-
-    if (!route) {
-      throw new Error(`No route found from ${tokenInId} to ${tokenOutId}`);
-    }
-
-    return {
-      route,
-      quote: {
-        amountIn: amount,
-        amountOut: route.expectedOutput,
-        priceImpact: route.priceImpact,
-        path: route.path.map((token) => token.contractId),
-      },
-    };
-  }
-
-  /**
    * Token Methods
    */
   async getTokenInfo(contractId: string): Promise<Token> {
@@ -220,7 +187,7 @@ export class DexteritySDK {
   /**
    * Vault Methods
    */
-  getVault(vaultId: string): any {
+  getVault(vaultId: string): Vault | undefined {
     this.checkInitialization();
     const vault = this.engine!.getVault(vaultId);
     if (!vault) {
@@ -229,14 +196,51 @@ export class DexteritySDK {
     return vault;
   }
 
-  getAllVaults(): any[] {
+  getAllVaults(): Vault[] {
     this.checkInitialization();
     return this.engine!.getAllVaults();
   }
 
-  getVaultsForToken(tokenId: string): any[] {
+  getVaultsForToken(tokenId: string): Vault[] {
     this.checkInitialization();
     return this.engine!.getVaultsForToken(tokenId);
+  }
+
+  /**
+   * Quote Methods
+   */
+  async getQuote(
+    tokenInId: string,
+    tokenOutId: string,
+    amount: number,
+    options: SwapOptions = {}
+  ): Promise<{ route: any; quote: any }> {
+    this.checkInitialization();
+
+    const tokenIn = await this.getTokenInfo(tokenInId);
+    const tokenOut = await this.getTokenInfo(tokenOutId);
+
+    const route = await this.engine!.findBestRoute(
+      tokenIn,
+      tokenOut,
+      amount,
+      this.stxAddress || "SP000000000000000000002Q6VF78", // Use dummy address if not set
+      options.maxHops
+    );
+
+    if (!route) {
+      throw new Error(`No route found from ${tokenInId} to ${tokenOutId}`);
+    }
+
+    return {
+      route,
+      quote: {
+        amountIn: amount,
+        amountOut: route.expectedOutput,
+        priceImpact: route.priceImpact,
+        path: route.path.map((token) => token.contractId),
+      },
+    };
   }
 
   /**
@@ -248,7 +252,15 @@ export class DexteritySDK {
 
   private checkInitialization() {
     if (!this.engine) {
-      throw new Error("SDK not initialized. Call initialize() first.");
+      throw new Error(
+        "SDK not initialized. Call initializeWithVaults() first."
+      );
+    }
+  }
+
+  private checkSender() {
+    if (!this.stxAddress) {
+      throw new Error("Sender address not set. Call setSender() first.");
     }
   }
 }
@@ -262,4 +274,6 @@ export type {
   LiquidityOptions,
   ContractSearchParams,
   EngineConfig,
+  Vault,
+  LPToken,
 };

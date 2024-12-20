@@ -11,6 +11,7 @@ import { Vault } from "./vault";
 import type { LPToken, Token } from "../types";
 
 export interface ContractSearchParams {
+  network?: StacksNetwork;
   limit?: number;
   offset?: number;
   excludePools?: string[];
@@ -90,12 +91,12 @@ async function createStacksClient(network: StacksNetwork) {
     baseUrl: network.client.baseUrl,
   });
 
-  if (process.env.STACKS_API_KEY) {
+  if (process.env.STACKS_API_KEY || process.env.HIRO_API_KEY) {
     client.use({
       onRequest({ request }) {
         request.headers.set(
           "x-hiro-api-key",
-          String(process.env.STACKS_API_KEY)
+          String(process.env.STACKS_API_KEY || process.env.HIRO_API_KEY)
         );
         return request;
       },
@@ -378,6 +379,7 @@ export async function discoverVaults(
 
     // Process each contract
     for (const contract of response.data.results) {
+      console.log(contract);
       // Skip excluded pools
       if (excludePools.includes(contract.contract_id)) {
         continue;
