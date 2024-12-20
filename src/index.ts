@@ -22,13 +22,13 @@ interface LiquidityOptions {
 /**
  * Server-side discovery functions
  */
-export const scanVaults = async (config: ContractSearchParams) => {
+export const discoverPools = async (config: ContractSearchParams) => {
   const { vaults } = await discoverVaults(
     config.network || STACKS_MAINNET,
     0.5,
     config
   );
-  return Array.from(vaults.values());
+  return Array.from(vaults.values()).map((vault) => vault.getPool());
 };
 
 export class DexteritySDK {
@@ -44,14 +44,14 @@ export class DexteritySDK {
   }
 
   /**
-   * Client-side initialization with pre-scanned vaults
+   * Client-side initialization with pre-scanned pools
    */
-  async initializeWithVaults(
-    vaults: Vault[],
+  async initialize(
+    pools: LPToken[],
     engineConfig?: Partial<EngineConfig>
   ): Promise<TradeEngine> {
     const vaultMap = new Map(
-      vaults.map((vault) => [vault.getPool().contractId, vault])
+      pools.map((pool) => [pool.contractId, new Vault(pool)])
     );
 
     this.engine = await TradeEngine.fromVaults(vaultMap, {

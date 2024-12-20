@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { DexteritySDK, scanVaults } from "../src/index";
-import { STACKS_MAINNET, STACKS_TESTNET } from "@stacks/network";
+import { DexteritySDK, discoverPools } from "../src/index";
+import { STACKS_TESTNET } from "@stacks/network";
 import { LPToken } from "../src/types";
 
 describe("DexteritySDK", () => {
@@ -57,8 +57,8 @@ describe("DexteritySDK", () => {
     });
 
     // Initialize SDK (this will discover vaults and build the graph)
-    const vaults = await scanVaults({ network: STACKS_TESTNET });
-    await sdk.initializeWithVaults(vaults);
+    const pools = await discoverPools({ network: STACKS_TESTNET });
+    await sdk.initialize(pools);
   });
 
   describe("Initialization", () => {
