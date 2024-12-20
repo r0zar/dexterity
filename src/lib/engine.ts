@@ -11,6 +11,7 @@ export interface EngineConfig {
   routerName?: string;
   defaultSlippage?: number;
   minimumLiquidity?: number;
+  stxAddress?: string;
   network?: any;
 }
 
@@ -132,7 +133,7 @@ export class TradeEngine {
     tokenIn: Token,
     tokenOut: Token,
     amount: number,
-    sender: string,
+    sender: string = this.config.stxAddress!,
     maxHops: number = this.config.maxHops!
   ): Promise<Route | null> {
     const paths = this.findAllPaths(
@@ -295,7 +296,7 @@ export class TradeEngine {
   private async buildRoute(
     path: Token[],
     amount: number,
-    sender: string
+    sender: string = this.config.stxAddress!
   ): Promise<Route | null> {
     if (path.length < 2) return null;
 
@@ -347,7 +348,7 @@ export class TradeEngine {
   private async buildRouteTransaction(
     route: Route,
     amount: number,
-    sender: string,
+    sender: string = this.config.stxAddress!,
     slippage: number
   ): Promise<TransactionConfig> {
     if (
@@ -377,10 +378,23 @@ export class TradeEngine {
     };
   }
 
+  createPostCondition(
+    token: Token,
+    amount: number,
+    sender: string = this.config.stxAddress!
+  ) {
+    if (token.contractId === ".stx") {
+      return Pc.principal(sender).willSendEq(amount).ustx();
+    }
+    return Pc.principal(sender)
+      .willSendEq(amount)
+      .ft(token.contractId as any, token.identifier);
+  }
+
   private buildPostConditions(
     route: Route,
     inputAmount: number,
-    sender: string,
+    sender: string = this.config.stxAddress!,
     slippagePercent: number
   ): any[] {
     const threshold = 1 - slippagePercent / 100;
@@ -388,14 +402,14 @@ export class TradeEngine {
     const firstHop = route.hops[0];
     const lastHop = route.hops[route.hops.length - 1];
 
-    const tokenInCondition = createPostCondition(
+    const tokenInCondition = this.createPostCondition(
       firstHop.tokenIn,
       inputAmount,
       sender
     );
 
     const minimumOutput = Math.floor(route.expectedOutput * threshold);
-    const tokenOutCondition = createPostCondition(
+    const tokenOutCondition = this.createPostCondition(
       lastHop.tokenOut,
       minimumOutput,
       sender
@@ -423,13 +437,4 @@ function calculatePriceImpact(hops: RouteHop[]): number {
 
 function calculateTotalFees(hops: RouteHop[]): number {
   return hops.reduce((total, hop) => total + hop.vault.getPool().fee, 0);
-}
-
-function createPostCondition(token: Token, amount: number, sender: string) {
-  if (token.contractId === ".stx") {
-    return Pc.principal(sender).willSendEq(amount).ustx();
-  }
-  return Pc.principal(sender)
-    .willSendEq(amount)
-    .ft(token.contractId as any, token.identifier);
 }
