@@ -131,7 +131,7 @@ describe("DexteritySDK", () => {
 
       expect(tx).toBeDefined();
       expect(tx.network).toBe(network);
-      expect(tx.functionName).toBe("execute");
+      expect(tx.functionName).toBe("swap-1");
     });
 
     it("should get a quote for a swap", async () => {
