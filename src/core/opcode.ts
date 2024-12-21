@@ -44,7 +44,7 @@ export class Opcode {
     return someCV(bufferCV(this.buffer));
   }
 
-  // Optional quick hex output (useful for debugging or server calls)
+  // Optional quick hex output
   toHex(): string {
     return (
       "0x" +

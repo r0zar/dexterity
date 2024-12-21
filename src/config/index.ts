@@ -3,7 +3,7 @@ import type { SDKConfig } from "../types";
 
 export const DEFAULT_SDK_CONFIG: SDKConfig = {
   apiKey: process.env.HIRO_API_KEY || process.env.STACKS_API_KEY || "",
-  mode: "client",
+  mode: "server",
   stxAddress: "SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS",
   network: STACKS_MAINNET,
   defaultSlippage: 0.5,

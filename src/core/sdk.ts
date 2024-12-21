@@ -1,5 +1,3 @@
-// src/core/sdk.ts
-
 import { Result, Cache, ErrorUtils } from "../utils";
 import { Router } from "./router";
 import { Vault } from "./vault";
@@ -12,12 +10,10 @@ import type {
   LPToken,
   Token,
   TransactionConfig,
-  TransactionOptions,
   Route,
   Quote,
   SDKConfig,
 } from "../types";
-import { Opcode } from "./opcode";
 import { StacksClient } from "../utils/client";
 import { DEFAULT_SDK_CONFIG, validateConfig } from "../config";
 
