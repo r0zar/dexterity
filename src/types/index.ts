@@ -1,12 +1,15 @@
-// src/types.ts
-import { PostConditionMode } from "@stacks/transactions";
+// src/types/index.ts
+
+import { StacksNetwork } from "@stacks/network";
+import { ClarityValue, PostConditionMode } from "@stacks/transactions";
+import { Vault } from "../core/vault";
+import { Opcode } from "../core/opcode";
 
 /**
- * Core Entity Types
+ * Token Types
  */
-
 export interface Token {
-  contractId: string;
+  contractId: `${string}.${string}`;
   identifier: string;
   name: string;
   symbol: string;
@@ -16,8 +19,7 @@ export interface Token {
   description?: string;
 }
 
-export interface Liquidity {
-  token: Token;
+export interface Liquidity extends Token {
   reserves: number;
 }
 
@@ -27,37 +29,24 @@ export interface LPToken extends Token {
 }
 
 /**
- * Quote Types
+ * Quote & Transaction Types
  */
-
-export interface BaseQuote {
-  dx: number; // Input amount
-  dy: number; // Output amount
-  dk: number; // LP token amount (where applicable)
+export interface Quote {
+  amountIn: number;
+  amountOut: number;
+  expectedPrice: number;
+  minimumReceived: number;
+  fee: number;
 }
 
-export interface SwapQuote extends BaseQuote {
-  priceImpact?: number;
-  minimumReceived?: number;
-  fee?: number;
+export interface Delta {
+  dx: number;
+  dy: number;
+  dk: number;
 }
-
-export interface LiquidityQuote extends BaseQuote {
-  share?: number; // Share of pool after operation
-  fees?: {
-    token0: number;
-    token1: number;
-  };
-}
-
-export type Quote = SwapQuote | LiquidityQuote;
-
-/**
- * Transaction Types
- */
 
 export interface TransactionConfig {
-  network: any;
+  network: StacksNetwork;
   contractAddress: string;
   contractName: string;
   functionName: string;
@@ -68,124 +57,126 @@ export interface TransactionConfig {
   onCancel?: () => void;
 }
 
-export interface PostCondition {
-  principal: string;
-  amount: number;
-  token?: Token;
-  conditionCode: "send-eq" | "send-lte" | "send-gte";
-}
-
 /**
- * Operation Configuration Types
+ * Route Types
  */
-
-export interface SwapConfig {
-  pool: LPToken;
-  amount: number;
-  slippagePercent?: number;
-  deadline?: number;
-  referrer?: string;
+export interface RouteHop {
+  vault: Vault;
+  tokenIn: Token;
+  tokenOut: Token;
+  opcode: Opcode;
+  quote?: {
+    amountIn: number;
+    amountOut: number;
+  };
 }
 
-export interface LiquidityConfig {
-  pool: LPToken;
-  amount: number;
-  slippagePercent?: number;
-  deadline?: number;
-  singleSided?: boolean;
-}
-
-export interface MultiHopConfig {
+export interface Route {
   path: Token[];
-  pools: LPToken[];
-  amount: number;
-  slippagePercent?: number;
-  deadline?: number;
-}
-
-/**
- * Event Types
- */
-
-export interface SwapEvent {
-  pool: string;
-  sender: string;
-  recipient: string;
-  tokenIn: string;
-  tokenOut: string;
+  hops: RouteHop[];
   amountIn: number;
   amountOut: number;
-  timestamp: number;
+  priceImpact: number;
+  totalFees: number;
 }
 
-export interface LiquidityEvent {
-  pool: string;
-  provider: string;
-  token0Amount: number;
-  token1Amount: number;
-  lpTokenAmount: number;
-  timestamp: number;
+/**
+ * Operation Types
+ */
+export interface SwapOperation {
+  type: "swap";
+  amount: number;
+  tokenIn: Token;
+  tokenOut: Token;
+}
+
+export interface LiquidityOperation {
+  type: "addLiquidity" | "removeLiquidity";
+  amount: number;
+  vault: string;
+}
+
+export type Operation = SwapOperation | LiquidityOperation;
+
+// Discovery Types
+export interface TokenMetadata {
+  name: string;
+  description: string;
+  image: string;
+  identifier: string;
+  symbol: string;
+  decimals: number;
+  properties?: {
+    contractName: `${string}.${string}`;
+    tokenAContract: string;
+    tokenBContract: string;
+    lpRebatePercent: number;
+  };
+}
+
+/**
+ * Options Types
+ */
+export interface TransactionOptions {
+  slippage?: number;
+  stxAddress?: string;
+  network?: StacksNetwork;
+}
+
+export interface CacheConfig {
+  ttl: number;
+  maxItems: number;
+}
+
+export interface CacheConfig {
+  ttl: number;
+  maxItems: number;
+}
+
+export interface SDKConfig {
+  apiKey: string;
+  mode: string;
+  network: StacksNetwork;
+  stxAddress: string;
+  defaultSlippage: number;
+  maxHops: number;
+  pools: LPToken[];
+  preferredPools: string[];
+  routerAddress: string;
+  routerName: string;
+  minimumLiquidity: number;
+  discovery: {
+    startBlock?: number;
+    batchSize?: number;
+    parallelRequests?: number;
+    refreshInterval?: number;
+    cacheConfig?: CacheConfig;
+  };
+}
+
+export interface PoolEvent {
+  type: "swap" | "mint" | "burn";
+  contract_id: string;
+  block_height: number;
+  tx_id: string;
+  values: {
+    [key: string]: any;
+  };
 }
 
 /**
  * Error Types
  */
-
 export interface DexterityError extends Error {
   code: number;
   details?: any;
 }
 
-export enum ErrorCode {
-  INSUFFICIENT_LIQUIDITY = 1001,
-  INSUFFICIENT_BALANCE = 1002,
-  EXCESSIVE_SLIPPAGE = 1003,
-  INVALID_PATH = 1004,
-  QUOTE_FAILED = 1005,
-  TRANSACTION_FAILED = 1006,
-  INVALID_OPCODE = 1007,
-}
-
-/**
- * Configuration Types
- */
-
-export interface SDKConfig {
-  network: any;
-  stxAddress?: string | null;
-  defaultSlippage?: number;
-}
-
-export interface RouterConfig {
-  maxHops?: number;
-  maxSplits?: number;
-  excludePools?: string[];
-  preferredPools?: string[];
-}
-
 /**
  * Response Types
  */
-
-export interface PoolResponse {
+export interface OperationResponse<T> {
   success: boolean;
-  pool?: LPToken;
+  data?: T;
   error?: DexterityError;
 }
-
-export interface QuoteResponse {
-  success: boolean;
-  quote?: Quote;
-  error?: DexterityError;
-}
-
-export interface TransactionResponse {
-  success: boolean;
-  txId?: string;
-  error?: DexterityError;
-}
-
-export type DexterityResponse =
-  | PoolResponse
-  | QuoteResponse
-  | TransactionResponse;

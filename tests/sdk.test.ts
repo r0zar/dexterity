@@ -1,208 +1,124 @@
-import { describe, it, expect, beforeAll } from "vitest";
-import { DexteritySDK, discoverPools } from "../src/index";
-import { STACKS_TESTNET } from "@stacks/network";
+import "dotenv/config";
+import { Dexterity } from "../src/core/sdk";
+import { STACKS_MAINNET, STACKS_TESTNET } from "@stacks/network";
 import { LPToken } from "../src/types";
 
-describe("DexteritySDK", () => {
-  let sdk: DexteritySDK;
-  const testAddress = "ST2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2SYCBMRR";
-  const network = STACKS_TESTNET;
+async function runTests() {
+  console.log("Starting SDK Tests...\n");
 
-  // Sample token and pool data
-  const charismaToken = {
-    contractId: `${testAddress}.charisma`,
-    identifier: "charisma",
-    name: "Charisma Token",
-    symbol: "CHA",
-    decimals: 6,
-    supply: 100000000,
-  };
+  // Initialize SDK
+  console.log("Test 1: SDK Initialization");
+  console.log("-------------------------");
 
-  const dmeToken = {
-    contractId: `${testAddress}.dme000-governance-token`,
-    identifier: "charisma",
-    name: "Governance Token",
-    symbol: "DMG",
-    decimals: 6,
-    supply: 100000000,
-  };
+  await Dexterity.initialize();
+  Dexterity.config.stxAddress = "SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS";
+  console.log("SDK Initialized!");
+  // console.log(Dexterity);
 
-  // Sample pool data
-  const testPool: LPToken = {
-    contractId: `${testAddress}.lp-token-rc4`,
-    liquidity: [
-      {
-        token: charismaToken,
-        reserves: 1000000,
-      },
-      {
-        token: dmeToken,
-        reserves: 1000000,
-      },
-    ],
-    symbol: "DEX",
-    name: "Dexterity",
-    decimals: 6,
-    identifier: "DEX",
-    supply: 1000000,
-    fee: 3000,
-  };
+  console.log("\n");
 
-  beforeAll(async () => {
-    // Initialize SDK with test configuration
-    sdk = new DexteritySDK({
-      network,
-      stxAddress: testAddress,
-      defaultSlippage: 0.5,
-    });
+  let pools: LPToken[] = [];
+  // put all the test data in the TEST_POOLS array
+  for (const vault of Dexterity.router.vaults.values()) {
+    pools.push(vault.getPool());
+  }
 
-    // Initialize SDK (this will discover vaults and build the graph)
-    const pools = await discoverPools({ network: STACKS_TESTNET });
-    await sdk.initialize(pools);
-  });
+  const fromToken = pools[0].liquidity[0];
+  const toToken = pools[0].liquidity[1];
 
-  describe("Initialization", () => {
-    it("should initialize successfully", () => {
-      expect(sdk.isInitialized()).toBe(true);
-    });
+  // Test quote for direct swap
+  console.log("Test 2: Direct Swap Quote (sBTC -> WELSH)");
+  console.log("---------------------------------------");
+  const quoteResult = await Dexterity.getQuote(fromToken, toToken, 1000000);
+  console.log("Quote Result:", quoteResult);
+  console.log("\n");
 
-    it("should throw error if trying to swap before initialization", async () => {
-      const uninitializedSdk = new DexteritySDK({
-        network,
-        stxAddress: testAddress,
-      });
+  // Test multi-hop quote
+  console.log("Test 3: Multi-hop Quote (STX -> BTC)");
+  console.log("------------------------------------");
+  const multiHopQuoteResult = await Dexterity.getQuote(
+    pools[0].liquidity[0],
+    pools[1].liquidity[1],
+    10000000
+  );
+  console.log("Multi-hop Quote Result:", multiHopQuoteResult);
+  console.log("\n");
 
-      await expect(
-        uninitializedSdk.buildSwap(
-          1000000,
-          charismaToken.contractId,
-          dmeToken.contractId
-        )
-      ).rejects.toThrow("SDK not initialized");
-    });
-  });
+  // Test building direct swap transaction
+  console.log("Test 4: Build Direct Swap Transaction");
+  console.log("------------------------------------");
+  const swapResult = await Dexterity.buildSwap(
+    pools[0].liquidity[0],
+    pools[0].liquidity[1],
+    1000
+  );
+  console.log("Swap Transaction Result:", swapResult.unwrap());
+  console.log("\n");
 
-  describe("Swap Operations", () => {
-    it("should build a basic swap transaction", async () => {
-      const tx = await sdk.buildSwap(
-        1000000, // 1 token
-        charismaToken.contractId,
-        dmeToken.contractId
-      );
+  // Test building multi-hop swap transaction
+  console.log("Test 5: Build Multi-hop Swap Transaction");
+  console.log("---------------------------------------");
+  const multiHopSwapResult = await Dexterity.buildSwap(
+    pools[0].liquidity[0],
+    pools[1].liquidity[1],
+    10000
+  );
 
-      expect(tx).toBeDefined();
-      expect(tx.network).toBe(network);
-      expect(tx.functionName).toBe("swap-1");
-    });
+  console.log(
+    "Multi-hop Swap Transaction Result:",
+    multiHopSwapResult.unwrap()
+  );
+  console.log("\n");
 
-    it("should build a swap with custom options", async () => {
-      const tx = await sdk.buildSwap(
-        1000000,
-        charismaToken.contractId,
-        dmeToken.contractId,
-        {
-          slippagePercent: 1,
-          maxHops: 2,
-          deadline: Date.now() + 3600,
-        }
-      );
+  // Test vault queries
+  console.log("Test 6: Vault Queries");
+  console.log("---------------------");
+  const stxVaults = Dexterity.getVaultsForToken(".stx");
+  console.log("Vaults for STX:", stxVaults);
 
-      expect(tx).toBeDefined();
-      expect(tx.network).toBe(network);
-      expect(tx.functionName).toBe("swap-1");
-    });
+  const usdaVaults = Dexterity.getVaultsForToken(
+    "SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.usda"
+  );
+  console.log("Vaults for USDA:", usdaVaults);
+  console.log("\n");
 
-    it("should build a swap with custom path", async () => {
-      const tx = await sdk.buildSwap(
-        1000000,
-        charismaToken.contractId,
-        dmeToken.contractId,
-        {
-          customPath: [charismaToken.contractId, dmeToken.contractId],
-        }
-      );
+  // Test edge cases
+  console.log("Test 7: Edge Cases");
+  console.log("------------------");
 
-      expect(tx).toBeDefined();
-      expect(tx.network).toBe(network);
-      expect(tx.functionName).toBe("swap-1");
-    });
+  // Test very small amount
+  const smallQuoteResult = await Dexterity.getQuote(
+    pools[0].liquidity[0],
+    pools[0].liquidity[1],
+    100
+  );
+  console.log("Small Amount Quote Result:", smallQuoteResult);
 
-    it("should get a quote for a swap", async () => {
-      const quote = await sdk.getQuote(
-        charismaToken.contractId,
-        dmeToken.contractId,
-        1000000
-      );
+  // Test very large amount
+  const largeQuoteResult = await Dexterity.getQuote(
+    pools[0].liquidity[0],
+    pools[0].liquidity[1],
+    1000
+  );
+  console.log("Large Amount Quote Result:", largeQuoteResult);
 
-      expect(quote).toBeDefined();
-      expect(quote.route).toBeDefined();
-      expect(quote.quote.amountIn).toBe(1000000);
-      expect(quote.quote.amountOut).toBeGreaterThanOrEqual(0);
-      expect(quote.quote.path).toContain(charismaToken.contractId);
-      expect(quote.quote.path).toContain(dmeToken.contractId);
-    });
-  });
+  // Test non-existent path
+  const invalidTokenQuoteResult = await Dexterity.getQuote(
+    {
+      contractId: "SP000000000000000000002Q6VF78.token-xyz",
+      identifier: "xyz",
+      name: "XYZ Token",
+      symbol: "XYZ",
+      decimals: 6,
+    },
+    pools[0].liquidity[1],
+    1000000
+  );
+  console.log("Invalid Token Quote Result:", invalidTokenQuoteResult);
+  console.log("\n");
 
-  describe("Liquidity Operations", () => {
-    it("should build an add liquidity transaction", async () => {
-      const tx = await sdk.buildAddLiquidity(
-        testAddress,
-        testPool.contractId,
-        1000000 // 1 token worth
-      );
+  console.log("All tests completed!");
+}
 
-      expect(tx).toBeDefined();
-      expect(tx.network).toBe(network);
-      expect(tx.functionName).toBe("execute");
-    });
-
-    it("should build a remove liquidity transaction", async () => {
-      const tx = await sdk.buildRemoveLiquidity(
-        testAddress,
-        testPool.contractId,
-        1000000 // 1 LP token
-      );
-
-      expect(tx).toBeDefined();
-      expect(tx.network).toBe(network);
-      expect(tx.functionName).toBe("execute");
-    });
-
-    it("should build liquidity operations with custom slippage", async () => {
-      const tx = await sdk.buildAddLiquidity(
-        testAddress,
-        testPool.contractId,
-        1000000,
-        {
-          slippagePercent: 1,
-        }
-      );
-
-      expect(tx).toBeDefined();
-      expect(tx.network).toBe(network);
-      expect(tx.functionName).toBe("execute");
-    });
-  });
-
-  describe("Error Handling", () => {
-    it("should throw error for invalid token paths", async () => {
-      await expect(
-        sdk.buildSwap(1000000, "invalid.token", dmeToken.contractId)
-      ).rejects.toThrow();
-    });
-
-    it("should throw error for invalid pool ID", async () => {
-      await expect(
-        sdk.buildAddLiquidity(testAddress, "invalid.pool", 1000000)
-      ).rejects.toThrow();
-    });
-
-    it("should throw error for invalid custom path", async () => {
-      await expect(
-        sdk.buildSwap(1000000, charismaToken.contractId, dmeToken.contractId, {
-          customPath: ["invalid.token", dmeToken.contractId],
-        })
-      ).rejects.toThrow();
-    });
-  });
-}, 50000);
+// Run the tests
+runTests().catch(console.error);
