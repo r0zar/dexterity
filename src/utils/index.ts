@@ -217,9 +217,6 @@ export const ContractUtils = {
    */
   parseContractId(contractId: string): [string, string] {
     const [address, name] = contractId.split(".");
-    if (!address || !name) {
-      throw new Error(`Invalid contract ID: ${contractId}`);
-    }
     return [address, name];
   },
 
