@@ -15,7 +15,7 @@ describe("Dexterity SDK", () => {
   let pools: LPToken[] = [];
 
   beforeAll(async () => {
-    // await Dexterity.deriveSigner(0);
+    await Dexterity.deriveSigner(0);
     await Dexterity.discoverPools(2);
     for (const vault of Dexterity.router.vaults.values()) {
       pools.push(vault.getPool());
