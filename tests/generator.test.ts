@@ -78,8 +78,6 @@ describe("Contract Generator", () => {
       // Check STX-specific transfer logic
       expect(contract).includes("stx-transfer?");
       expect(contract).includes("stx-get-balance");
-
-      console.log(contract);
     });
 
     it("should generate token-token pool contract", () => {
