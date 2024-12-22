@@ -326,9 +326,10 @@ export class Dexterity {
     // Use a Map to deduplicate tokens
     const tokens = new Map<string, Token>();
     // Collect unique tokens from all liquidity pairs
-    for (const pool of this.config.pools) {
-      for (const token of pool.liquidity) {
-        if (!tokens.has(token.contractId)) {
+    for (const pool of this.router.vaults.values()) {
+      const liquidity = pool.getTokens();
+      for (const token of liquidity) {
+        if (token.contractId) {
           tokens.set(token.contractId, {
             contractId: token.contractId,
             name: token.name,
