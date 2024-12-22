@@ -143,20 +143,20 @@ export class Vault {
         cvToHex(opcode.build()),
       ]);
     } else {
-      const contractId = `${this.contractAddress}.${this.contractName}`;
-      result = await Dexterity.client.proxyReadOnly(contractId, method, [
-        cvToHex(uintCV(amount)),
-        cvToHex(opcode.build()),
-      ]);
-      // const response = await fetchCallReadOnlyFunction({
-      //   contractAddress: this.contractAddress,
-      //   contractName: this.contractName,
-      //   functionName: method,
-      //   functionArgs: [uintCV(amount), opcode.build()],
-      //   senderAddress: this.pool.contractId,
-      //   network: Dexterity.config.network,
-      // });
-      // result = cvToValue(response).value;
+      // const contractId = `${this.contractAddress}.${this.contractName}`;
+      // result = await Dexterity.client.proxyReadOnly(contractId, method, [
+      //   cvToHex(uintCV(amount)),
+      //   cvToHex(opcode.build()),
+      // ]);
+      const response = await fetchCallReadOnlyFunction({
+        contractAddress: this.contractAddress,
+        contractName: this.contractName,
+        functionName: method,
+        functionArgs: [uintCV(amount), opcode.build()],
+        senderAddress: this.pool.contractId,
+        network: Dexterity.config.network,
+      });
+      result = cvToValue(response).value;
     }
 
     return {
