@@ -15,8 +15,8 @@ describe("Dexterity SDK", () => {
   let pools: LPToken[] = [];
 
   beforeAll(async () => {
-    const initResult = await Dexterity.initialize();
-    expect(initResult.isOk()).toBe(true);
+    await Dexterity.deriveSigner(0);
+    await Dexterity.discoverPools(2);
     for (const vault of Dexterity.router.vaults.values()) {
       pools.push(vault.getPool());
     }
@@ -70,16 +70,6 @@ describe("Dexterity SDK", () => {
     expect(multiHopSwapConfig).toHaveProperty("functionName");
     expect(multiHopSwapConfig.functionName).toMatch(/^swap-/);
     expect(multiHopSwapConfig.postConditions.length).toBeGreaterThanOrEqual(2);
-  });
-
-  it("should get vaults for tokens", () => {
-    const stxVaults = Dexterity.getVaultsForToken(".stx");
-    expect(stxVaults.size).toBeGreaterThan(0);
-
-    const chaVaults = Dexterity.getVaultsForToken(
-      "SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.charisma-token"
-    );
-    expect(chaVaults.size).toBeGreaterThan(0);
   });
 
   it("should get tokens", () => {

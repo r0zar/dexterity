@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Result, Cache, ErrorUtils, deriveSigner } from "../utils";
+import { Result, Cache, ErrorUtils } from "../utils";
 import { Router } from "./router";
 import { Vault } from "./vault";
 import {
@@ -19,44 +19,17 @@ import type {
 import { StacksClient } from "../utils/client";
 import { DEFAULT_SDK_CONFIG, validateConfig } from "../config";
 import { ContractGenerator } from "./generator";
+import {
+  generateNewAccount,
+  generateWallet,
+  getStxAddress,
+} from "@stacks/wallet-sdk";
 
 export class Dexterity {
   static cache: Cache = Cache.getInstance();
   static config: SDKConfig = DEFAULT_SDK_CONFIG;
   static client: typeof StacksClient = StacksClient;
   static router: typeof Router = Router;
-
-  /**
-   * Initialization with discovered pools
-   */
-  static async initialize(
-    config?: SDKConfig
-  ): Promise<Result<LPToken[] | void, Error>> {
-    this.config = validateConfig(config);
-    this.cache = Cache.getInstance();
-    await deriveSigner();
-
-    try {
-      const poolsResult = await this.discoverPools();
-      if (poolsResult.isErr()) {
-        console.error("Failed to discover pools:", poolsResult);
-      }
-
-      const pools = poolsResult.unwrap();
-      const vaults = pools.map((pool) => new Vault(pool));
-      this.router.loadVaults(vaults);
-
-      return Result.ok(void 0);
-    } catch (error) {
-      return Result.err(
-        ErrorUtils.createError(
-          ERROR_CODES.SDK_NOT_INITIALIZED,
-          "Failed to initialize SDK",
-          error
-        )
-      );
-    }
-  }
 
   /**
    * Get current configuration
@@ -68,45 +41,31 @@ export class Dexterity {
   /**
    * Discovery Methods
    */
-  static async discoverPools(): Promise<Result<LPToken[], Error>> {
-    try {
-      const contracts = await StacksClient.searchContractsByTrait(POOL_TRAIT);
+  static async discoverPools(limit?: number) {
+    const contracts = await StacksClient.searchContractsByTrait(
+      POOL_TRAIT,
+      limit
+    );
 
-      if (!contracts.length) {
-        return Result.err(
-          ErrorUtils.createError(
-            ERROR_CODES.DISCOVERY_FAILED,
-            "No pool contracts found"
-          )
-        );
-      }
+    // Process contracts in parallel batches
+    const pools: LPToken[] = [];
+    const parallelRequests =
+      this.config.discovery?.parallelRequests ??
+      DEFAULT_DISCOVERY_CONFIG.parallelRequests;
 
-      // Process contracts in parallel batches
-      const pools: LPToken[] = [];
-      const parallelRequests =
-        this.config.discovery?.parallelRequests ??
-        DEFAULT_DISCOVERY_CONFIG.parallelRequests;
-
-      for (let i = 0; i < contracts.length; i += parallelRequests) {
-        const batch = contracts.slice(i, i + parallelRequests);
-        const poolPromises = batch.map((contract) =>
-          this.processPoolContract(contract.contract_id)
-        );
-
-        const results = await Promise.all(poolPromises);
-        pools.push(...results.filter((r) => r.isOk()).map((r) => r.unwrap()));
-      }
-
-      return Result.ok(pools);
-    } catch (error) {
-      return Result.err(
-        ErrorUtils.createError(
-          ERROR_CODES.DISCOVERY_FAILED,
-          "Failed to discover pools",
-          error
-        )
+    for (let i = 0; i < contracts.length; i += parallelRequests) {
+      const batch = contracts.slice(i, i + parallelRequests);
+      const poolPromises = batch.map((contract) =>
+        this.processPoolContract(contract.contract_id)
       );
+
+      const results = await Promise.all(poolPromises);
+      pools.push(...results.filter((r) => r.isOk()).map((r) => r.unwrap()));
     }
+
+    const vaults = pools.map((pool) => new Vault(pool));
+    console.log(vaults);
+    this.router.loadVaults(vaults);
   }
 
   private static async processPoolContract(
@@ -176,6 +135,8 @@ export class Dexterity {
             name: "Stacks Token",
             symbol: "STX",
             decimals: 6,
+            description: "The native token of the Stacks blockchain",
+            image: "https://charisma.rocks/stx-logo.png",
           } as Token;
         }
 
@@ -342,5 +303,32 @@ export class Dexterity {
    */
   static generateVaultContract(config: LPToken): ContractGenerator {
     return ContractGenerator.generateVaultContract(config);
+  }
+
+  static async deriveSigner(index = 0) {
+    if (process.env.SEED_PHRASE) {
+      // using a blank password since wallet isn't persisted
+      const password = "";
+      // create a Stacks wallet with the mnemonic
+      let wallet = await generateWallet({
+        secretKey: process.env.SEED_PHRASE,
+        password: password,
+      });
+      // add a new account to reach the selected index
+      for (let i = 0; i <= index; i++) {
+        wallet = generateNewAccount(wallet);
+      }
+      // return address and key for selected index
+      const stxAddress = getStxAddress(
+        wallet.accounts[index],
+        Dexterity.config.network
+      );
+
+      Dexterity.config.mode = "server";
+      Dexterity.config.privateKey = wallet.accounts[index].stxPrivateKey;
+      Dexterity.config.stxAddress = stxAddress;
+    } else {
+      Dexterity.config.mode = "client";
+    }
   }
 }
