@@ -100,7 +100,7 @@ describe("Dexterity SDK", () => {
     const decimals = await Dexterity.client.getTokenDecimals(
       "SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.charisma-token"
     );
-    expect(decimals).toBeGreaterThan(6);
+    expect(decimals).toEqual(6);
   });
 
   it("should get token name", async () => {
