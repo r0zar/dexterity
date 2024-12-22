@@ -81,6 +81,8 @@ export const DEFAULT_SDK_CONFIG: SDKConfig = {
           symbol: "STX",
           decimals: 6,
           reserves: 422880586,
+          description: "The native token of the Stacks blockchain.",
+          image: "https://charisma.rocks/stx-logo.png",
         },
       ],
       supply: 0,
@@ -425,6 +427,8 @@ export const DEFAULT_SDK_CONFIG: SDKConfig = {
           symbol: "STX",
           decimals: 6,
           reserves: 422880586,
+          description: "The native token of the Stacks blockchain.",
+          image: "https://charisma.rocks/stx-logo.png",
         },
         {
           contractId:
