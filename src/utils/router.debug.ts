@@ -130,7 +130,6 @@ class DebugUtils {
     path: string[],
     inputAmount: number,
     outputAmount: number,
-    priceImpact: number,
     fees: number,
     hopDetails: any[],
     elapsedMs: number
@@ -143,7 +142,6 @@ class DebugUtils {
         path,
         inputAmount,
         outputAmount,
-        priceImpact,
         fees,
         hopDetails,
         elapsedMs,

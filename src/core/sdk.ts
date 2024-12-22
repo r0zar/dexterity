@@ -6,16 +6,10 @@ import {
   ERROR_CODES,
   POOL_TRAIT,
 } from "../constants";
-import type {
-  LPToken,
-  Token,
-  TransactionConfig,
-  Route,
-  Quote,
-  SDKConfig,
-} from "../types";
+import type { LPToken, Token, Route, Quote, SDKConfig } from "../types";
 import { StacksClient } from "../utils/client";
 import { DEFAULT_SDK_CONFIG, validateConfig } from "../config";
+import { ContractGenerator } from "./generator";
 
 export class Dexterity {
   static cache: Cache;
@@ -115,7 +109,10 @@ export class Dexterity {
   private static async processPoolContract(
     contractId: `${string}.${string}`
   ): Promise<Result<LPToken, Error>> {
-    console.log(`Processing contract ${contractId}`);
+    const presetPool = this.config.pools.find(
+      (p) => p.contractId === contractId
+    );
+    if (presetPool) return Result.ok(presetPool);
     try {
       const metadata = await this.client.getTokenMetadata(contractId);
 
@@ -142,8 +139,7 @@ export class Dexterity {
       const fee = Math.floor(
         (metadata.properties.lpRebatePercent / 100) * 1000000
       );
-
-      return Result.ok({
+      const pool = {
         contractId,
         name: metadata.name,
         symbol: metadata.symbol,
@@ -157,7 +153,9 @@ export class Dexterity {
           { ...token1, reserves: reserve1 },
         ],
         supply: 0,
-      });
+      };
+      console.log(pool);
+      return Result.ok(pool);
     } catch (error) {
       return Result.err(
         ErrorUtils.createError(
@@ -234,57 +232,28 @@ export class Dexterity {
   /**
    * Core trading methods
    */
-  static async buildSwap(
-    tokenIn: Token,
-    tokenOut: Token,
-    amount: number
-  ): Promise<Result<TransactionConfig | Route | Quote | number, Error>> {
+  static async buildSwap(tokenIn: Token, tokenOut: Token, amount: number) {
     if (!this.isInitialized()) {
-      return Result.err(
-        ErrorUtils.createError(
-          ERROR_CODES.SDK_NOT_INITIALIZED,
-          "SDK not initialized"
-        )
+      throw ErrorUtils.createError(
+        ERROR_CODES.SDK_NOT_INITIALIZED,
+        "SDK not initialized"
       );
     }
 
-    try {
-      // 1. Get best route
-      const routeResult = await this.router.findBestRoute(
-        tokenIn,
-        tokenOut,
-        amount
-      );
-      if (routeResult.isErr()) return routeResult;
-      const route = routeResult.unwrap();
-
-      // 2. If single hop, delegate to the Vault
-      if (route.hops.length === 1) {
-        const hop = route.hops[0];
-        // We already know direction if we built the opcode,
-        // but here's an example of using a preset if you prefer:
-        const opcode = hop.opcode;
-        return hop.vault.buildTransaction(opcode, amount);
-      }
-
-      // 3. If multi-hop, build a router transaction
-      return this.router.buildRouterTransaction(route, amount);
-    } catch (error) {
-      return Result.err(
-        ErrorUtils.createError(
-          ERROR_CODES.TRANSACTION_FAILED,
-          "Failed to build swap transaction",
-          error
-        )
-      );
-    }
+    const routeResult = await this.router.findBestRoute(
+      tokenIn,
+      tokenOut,
+      amount
+    );
+    const route = routeResult.unwrap();
+    return this.router.buildRouterTransaction(route, amount);
   }
 
   static async getQuote(
     tokenIn: Token,
     tokenOut: Token,
     amount: number
-  ): Promise<Result<Quote | Route, Error>> {
+  ): Promise<Result<Quote, Error>> {
     if (!this.isInitialized()) {
       return Result.err(
         ErrorUtils.createError(
@@ -306,7 +275,7 @@ export class Dexterity {
             amount
           );
 
-          if (routeResult.isErr()) return routeResult;
+          if (routeResult.isErr()) throw routeResult.unwrap();
           const route = routeResult.unwrap();
 
           return Result.ok({
@@ -344,5 +313,12 @@ export class Dexterity {
 
   static getVaultsForToken(tokenId: string): Map<string, Vault> {
     return this.router.getVaultsForToken(tokenId);
+  }
+
+  /**
+   * Contract generation methods
+   */
+  static generateVaultContract(config: LPToken): ContractGenerator {
+    return ContractGenerator.generateVaultContract(config);
   }
 }

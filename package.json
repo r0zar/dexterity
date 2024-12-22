@@ -34,6 +34,7 @@
   "dependencies": {
     "@stacks/blockchain-api-client": "8.4.0",
     "@stacks/common": "7.0.2",
+    "@stacks/connect": "^7.9.0",
     "@stacks/network": "7.0.2",
     "@stacks/transactions": "7.0.2",
     "dotenv": "^16.4.7"

@@ -6,15 +6,19 @@ import { Result, ErrorUtils } from "../utils";
 import { ERROR_CODES } from "../constants";
 import { Dexterity } from "./sdk";
 import { debugUtils } from "../utils/router.debug";
-import { uintCV, PostConditionMode, cvToHex } from "@stacks/transactions";
-import type {
-  Token,
-  Route,
-  RouteHop,
-  TransactionConfig,
-  Quote,
-} from "../types";
+import {
+  uintCV,
+  PostConditionMode,
+  cvToHex,
+  TxBroadcastResult,
+  makeContractCall,
+  broadcastTransaction,
+  ClarityValue,
+  ContractCallOptions,
+} from "@stacks/transactions";
+import type { Token, Route, RouteHop, ExecuteOptions } from "../types";
 import { DEFAULT_SDK_CONFIG } from "../config";
+import { openContractCall, TransactionOptions } from "@stacks/connect";
 
 interface GraphEdge {
   vault: Vault;
@@ -36,58 +40,69 @@ export class Router {
   // -----------------------------------
   // Transaction building for multi-hops
   // -----------------------------------
-  static async buildRouterTransaction(
+  static buildRouterTransaction(route: Route, amount: number) {
+    // Collect post-conditions from each hop’s vault
+    const allPostConditions: any[] = [];
+    for (const hop of route.hops) {
+      const hopAmountIn = hop.quote?.amountIn ?? amount;
+      const hopAmountOut = hop.quote?.amountOut ?? 0;
+
+      // Use vault’s method to build the basic post-conditions for this hop
+      const pc = hop.vault.buildSwapPostConditions(
+        hop.tokenIn,
+        hop.tokenOut,
+        hopAmountIn,
+        hopAmountOut
+      );
+      allPostConditions.push(...pc);
+    }
+
+    return {
+      network: Dexterity.config.network!,
+      contractAddress: Dexterity.config.routerAddress!,
+      contractName: Dexterity.config.routerName!,
+      functionName: `swap-${route.hops.length}`,
+      functionArgs: [
+        uintCV(amount),
+        ...route.hops.map((hop) => hop.opcode.build()),
+      ],
+      postConditionMode: PostConditionMode.Deny,
+      postConditions: allPostConditions,
+    };
+  }
+
+  /**
+   * Execute a multi-hop swap transaction
+   */
+  static async executeSwap(
     route: Route,
-    amount: number
-  ): Promise<Result<TransactionConfig | Quote, Error>> {
+    amount: number,
+    options: ExecuteOptions
+  ): Promise<TxBroadcastResult | void> {
     try {
-      // Collect post-conditions from each hop’s vault
-      const allPostConditions: any[] = [];
-      for (const hop of route.hops) {
-        const hopAmountIn = hop.quote?.amountIn ?? amount;
-        const hopAmountOut = hop.quote?.amountOut ?? 0;
+      // First build the transaction config
+      const txConfig = this.buildRouterTransaction(route, amount);
 
-        // Use vault’s method to build the basic post-conditions for this hop
-        const pc = hop.vault.buildSwapPostConditions(
-          hop.tokenIn,
-          hop.tokenOut,
-          hopAmountIn,
-          hopAmountOut
-        );
-        allPostConditions.push(...pc);
-      }
-
-      // Build function args for the final router transaction
-      const isServerMode = Dexterity.config.mode === "server";
-      const amountCV = uintCV(amount);
-      const opcodeCVs = route.hops.map((hop) => hop.opcode.build());
-
-      let functionArgs: any[];
-      if (isServerMode) {
-        functionArgs = [
-          cvToHex(amountCV),
-          ...opcodeCVs.map((opcode) => cvToHex(opcode)),
-        ];
+      if (Dexterity.config.mode === "server") {
+        // Server-side: create and broadcast transaction
+        const transaction = await makeContractCall({
+          ...txConfig,
+          senderKey: options.senderKey,
+          fee: options.fee || 10000,
+        });
+        return broadcastTransaction({ transaction });
       } else {
-        functionArgs = [amountCV, ...opcodeCVs];
+        // Client-side: use wallet to sign and broadcast
+        await openContractCall({
+          ...txConfig,
+          fee: options.fee || 10000,
+        });
       }
-
-      return Result.ok({
-        network: Dexterity.config.network!,
-        contractAddress: Dexterity.config.routerAddress!,
-        contractName: Dexterity.config.routerName!,
-        functionName: `swap-${route.hops.length}`,
-        functionArgs,
-        postConditionMode: PostConditionMode.Deny,
-        postConditions: allPostConditions,
-      });
     } catch (error) {
-      return Result.err(
-        ErrorUtils.createError(
-          ERROR_CODES.TRANSACTION_FAILED,
-          "Failed to build router transaction",
-          error
-        )
+      throw ErrorUtils.createError(
+        ERROR_CODES.TRANSACTION_FAILED,
+        "Failed to execute swap transaction",
+        error
       );
     }
   }
@@ -267,7 +282,6 @@ export class Router {
       const hops: RouteHop[] = [];
       let currentAmount = amount;
       let totalFees = 0;
-      let totalPriceImpact = 0; // Not implemented here, but you could add it
 
       for (let i = 0; i < tokens.length - 1; i++) {
         const tokenIn = tokens[i];
@@ -319,7 +333,6 @@ export class Router {
         hops,
         amountIn: amount,
         amountOut: currentAmount,
-        priceImpact: totalPriceImpact,
         totalFees,
       };
 
@@ -327,7 +340,6 @@ export class Router {
         tokens.map((t) => t.contractId),
         amount,
         currentAmount,
-        totalPriceImpact,
         totalFees,
         hopDetails,
         Date.now() - startTime
@@ -359,7 +371,6 @@ export class Router {
     return {
       totalHops: route.hops.length,
       totalFees: route.totalFees,
-      estimatedPriceImpact: route.priceImpact,
       vaults: route.hops.map((h) => h.vault),
     };
   }

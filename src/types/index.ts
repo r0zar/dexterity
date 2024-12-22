@@ -45,17 +45,17 @@ export interface Delta {
   dk: number;
 }
 
-export interface TransactionConfig {
-  network: StacksNetwork;
-  contractAddress: string;
-  contractName: string;
-  functionName: string;
-  functionArgs: any[];
-  postConditionMode: PostConditionMode;
-  postConditions: any[];
-  onFinish?: (data: any) => void;
-  onCancel?: () => void;
-}
+// export interface TransactionConfig {
+//   network: StacksNetwork;
+//   contractAddress: string;
+//   contractName: string;
+//   functionName: string;
+//   functionArgs: any[];
+//   postConditionMode: PostConditionMode;
+//   postConditions: any[];
+//   onFinish?: (data: any) => void;
+//   onCancel?: () => void;
+// }
 
 /**
  * Route Types
@@ -76,7 +76,6 @@ export interface Route {
   hops: RouteHop[];
   amountIn: number;
   amountOut: number;
-  priceImpact: number;
   totalFees: number;
 }
 
@@ -152,6 +151,27 @@ export interface SDKConfig {
     refreshInterval?: number;
     cacheConfig?: CacheConfig;
   };
+}
+
+export interface ContractParams {
+  tokenUri: string;
+  tokenAContract: string;
+  tokenBContract: string;
+  lpTokenName: string;
+  lpTokenSymbol: string;
+  lpRebatePercent: number;
+  initialLiquidityA: number;
+  initialLiquidityB: number;
+}
+
+export interface DeployOptions {
+  senderKey: string;
+  fee?: number;
+}
+
+export interface ExecuteOptions {
+  senderKey: string;
+  fee?: number;
 }
 
 export interface PoolEvent {

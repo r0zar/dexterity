@@ -1,5 +1,3 @@
-// src/core/vault.ts
-
 import {
   fetchCallReadOnlyFunction,
   uintCV,
@@ -8,12 +6,16 @@ import {
   PostCondition,
   Pc,
   PostConditionMode,
+  TxBroadcastResult,
+  makeContractCall,
+  broadcastTransaction,
 } from "@stacks/transactions";
 import { Opcode } from "./opcode";
 import { Dexterity } from "./sdk";
 import { ContractUtils, ErrorUtils, Result } from "../utils";
 import { ERROR_CODES, OPERATION_TYPES } from "../constants";
-import type { LPToken, Quote, Token, TransactionConfig, Delta } from "../types";
+import type { LPToken, Quote, Token, Delta, ExecuteOptions } from "../types";
+import { openContractCall } from "@stacks/connect";
 
 export class Vault {
   private readonly contractAddress: string;
@@ -54,41 +56,58 @@ export class Vault {
   // -----------
   //  Execution
   // -----------
-  async buildTransaction(
+  async buildTransaction(opcode: Opcode, amount: number) {
+    // Get quote first
+    const quoteResult = await this.quote(amount, opcode);
+    if (quoteResult.isErr()) throw quoteResult.unwrap();
+    const quote = quoteResult.unwrap();
+
+    // Build post conditions
+    const postConditions = this.buildPostConditions(opcode, amount, quote);
+
+    // Return config - functionArgs already handled by callContract
+    return Result.ok({
+      network: Dexterity.config.network,
+      contractAddress: this.contractAddress,
+      contractName: this.contractName,
+      functionName: "execute",
+      functionArgs: [uintCV(amount), opcode.build()],
+      postConditionMode: PostConditionMode.Deny,
+      postConditions,
+    });
+  }
+
+  async executeTransaction(
     opcode: Opcode,
-    amount: number
-  ): Promise<Result<TransactionConfig | Quote, Error>> {
+    amount: number,
+    options: ExecuteOptions
+  ): Promise<TxBroadcastResult | void> {
     try {
-      // First, get a quote
-      const quoteResult = await this.quote(amount, opcode);
-      if (quoteResult.isErr()) return quoteResult;
-      const quote = quoteResult.unwrap();
+      // First build the transaction config
+      const txConfigResult = await this.buildTransaction(opcode, amount);
+      if (txConfigResult.isErr()) throw txConfigResult.unwrap();
+      const txConfig = txConfigResult.unwrap();
 
-      // Build post-conditions for a single-hop swap
-      const postConditions = this.buildPostConditions(opcode, amount, quote);
-
-      // Build final transaction config
-      const functionArgs =
-        Dexterity.config.mode === "server"
-          ? [cvToHex(uintCV(amount)), cvToHex(opcode.build())]
-          : [uintCV(amount), opcode.build()];
-
-      return Result.ok({
-        network: Dexterity.config.network,
-        contractAddress: this.contractAddress,
-        contractName: this.contractName,
-        functionName: "execute",
-        functionArgs,
-        postConditionMode: PostConditionMode.Deny,
-        postConditions,
-      });
+      if (Dexterity.config.mode === "server") {
+        // Server-side: create and broadcast transaction
+        const transaction = await makeContractCall({
+          ...txConfig,
+          senderKey: options.senderKey,
+          fee: options.fee || 10000,
+        });
+        return broadcastTransaction({ transaction });
+      } else {
+        // Client-side: use wallet to sign and broadcast
+        await openContractCall({
+          ...txConfig,
+          fee: options.fee || 10000,
+        });
+      }
     } catch (error) {
-      return Result.err(
-        ErrorUtils.createError(
-          ERROR_CODES.TRANSACTION_FAILED,
-          "Failed to build transaction",
-          error
-        )
+      throw ErrorUtils.createError(
+        ERROR_CODES.TRANSACTION_FAILED,
+        "Failed to execute transaction",
+        error
       );
     }
   }

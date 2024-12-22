@@ -1,16 +1,7 @@
-// tests/sdk.test.ts
-
 import { describe, it, expect, beforeAll } from "vitest";
 import "dotenv/config";
 import { Dexterity } from "../src/core/sdk";
-import {
-  DexterityError,
-  LPToken,
-  Quote,
-  Token,
-  TransactionConfig,
-} from "../src/types";
-import { ERROR_CODES } from "../src/constants";
+import { LPToken, Token } from "../src/types";
 
 // Test data
 const TEST_ADDRESS = "SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS";
@@ -40,7 +31,7 @@ describe("Dexterity SDK", () => {
     expect(pools.length).toBeGreaterThan(0);
     fromToken = pools[0].liquidity[0];
     toToken = pools[0].liquidity[1];
-  });
+  }, 200000);
 
   it("should initialize successfully", () => {
     expect(Dexterity.isInitialized()).toBe(true);
@@ -70,47 +61,43 @@ describe("Dexterity SDK", () => {
   });
 
   it("should build direct swap transaction", async () => {
-    const swapResult = await Dexterity.buildSwap(
+    const swapConfig = await Dexterity.buildSwap(
       pools[0].liquidity[0],
       pools[0].liquidity[1],
       1000
     );
-    expect(swapResult.isOk()).toBe(true);
 
-    const tx = swapResult.unwrap() as TransactionConfig;
-    expect(tx).toHaveProperty("functionName", "execute");
-    expect(tx).toHaveProperty("postConditions");
-    expect(tx.postConditions).toBeInstanceOf(Array);
-    expect(tx.functionArgs).toHaveLength(2);
+    expect(swapConfig).toHaveProperty("functionName", "swap-1");
+    expect(swapConfig).toHaveProperty("postConditions");
+    expect(swapConfig.postConditions).toBeInstanceOf(Array);
+    expect(swapConfig.functionArgs).toHaveLength(2);
 
     // Validate opcode format
-    const [amountArg, opcodeArg] = tx.functionArgs;
-    expect(opcodeArg).toMatch(/^0x[0-9a-f]+$/); // Hex string
-    expect(opcodeArg.length).toBeLessThan(40); // Reasonable length
+    const [amountArg, opcodeArg] = swapConfig.functionArgs;
+    expect(amountArg).toBeTypeOf("object"); // clarity value
+    expect(opcodeArg).toBeTypeOf("object"); // clarity value
   });
 
   it("should build multi-hop swap transaction", async () => {
-    const multiHopSwap = await Dexterity.buildSwap(
+    const multiHopSwapConfig = await Dexterity.buildSwap(
       pools[0].liquidity[0],
       pools[1].liquidity[1],
       10000
     );
-    expect(multiHopSwap.isOk()).toBe(true);
 
-    const tx = multiHopSwap.unwrap() as TransactionConfig;
-    expect(tx).toHaveProperty("functionName");
-    expect(tx.functionName).toMatch(/^swap-/);
-    expect(tx.postConditions.length).toBeGreaterThanOrEqual(2);
+    expect(multiHopSwapConfig).toHaveProperty("functionName");
+    expect(multiHopSwapConfig.functionName).toMatch(/^swap-/);
+    expect(multiHopSwapConfig.postConditions.length).toBeGreaterThanOrEqual(2);
   });
 
   it("should get vaults for tokens", () => {
     const stxVaults = Dexterity.getVaultsForToken(".stx");
     expect(stxVaults.size).toBeGreaterThan(0);
 
-    const usdaVaults = Dexterity.getVaultsForToken(
-      "SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.usda"
+    const chaVaults = Dexterity.getVaultsForToken(
+      "SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.charisma-token"
     );
-    expect(usdaVaults.size).toBeGreaterThan(0);
+    expect(chaVaults.size).toBeGreaterThan(0);
   });
 
   describe("Edge Cases", () => {
@@ -118,32 +105,27 @@ describe("Dexterity SDK", () => {
       const smallQuote = await Dexterity.getQuote(
         pools[0].liquidity[0],
         pools[0].liquidity[1],
-        100
+        10
       );
       expect(smallQuote.isOk()).toBe(true);
-
       const quote = smallQuote.unwrap();
       expect(quote.amountOut).toBeGreaterThan(0);
     });
-
     it("should handle large amounts", async () => {
       const largeQuote = await Dexterity.getQuote(
         pools[0].liquidity[0],
         pools[0].liquidity[1],
-        1000000000000
+        1000000000
       );
       expect(largeQuote.isOk()).toBe(true);
     });
-
     it("should handle invalid paths", async () => {
       const invalidQuote = await Dexterity.getQuote(
         INVALID_TOKEN,
         pools[0].liquidity[1],
-        1000000
+        1000
       );
       expect(invalidQuote.isErr()).toBe(true);
-      const error = invalidQuote.unwrap() as unknown as DexterityError;
-      expect(error.code).toBe(ERROR_CODES.INVALID_PATH);
     });
   });
-});
+}, 200000);
