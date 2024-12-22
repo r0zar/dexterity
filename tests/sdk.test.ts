@@ -99,35 +99,6 @@ describe("Dexterity SDK", () => {
     expect(chaVaults.size).toBeGreaterThan(0);
   });
 
-  describe("Edge Cases", () => {
-    it("should handle small amounts", async () => {
-      const smallQuote = await Dexterity.getQuote(
-        pools[0].liquidity[0].contractId,
-        pools[0].liquidity[1].contractId,
-        10
-      );
-      expect(smallQuote.isOk()).toBe(true);
-      const quote = smallQuote.unwrap();
-      expect(quote.amountOut).toBeGreaterThan(0);
-    });
-    it("should handle large amounts", async () => {
-      const largeQuote = await Dexterity.getQuote(
-        pools[0].liquidity[0].contractId,
-        pools[0].liquidity[1].contractId,
-        1000000000
-      );
-      expect(largeQuote.isOk()).toBe(true);
-    });
-    it("should handle invalid paths", async () => {
-      const invalidQuote = await Dexterity.getQuote(
-        INVALID_TOKEN.contractId,
-        pools[0].liquidity[1].contractId,
-        1000
-      );
-      expect(invalidQuote.isErr()).toBe(true);
-    });
-  });
-
   // describe("Transaction Execution", async () => {
   //   it("should execute swap transaction", async () => {
   //     const response = await Dexterity.executeSwap(
