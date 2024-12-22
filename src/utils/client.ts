@@ -64,17 +64,17 @@ export class StacksClient {
   }
 
   static async getTokenDecimals(contractId: string): Promise<number> {
-    const { value } = await this.callReadOnly(contractId, "get-decimals");
+    const value = await this.callReadOnly(contractId, "get-decimals");
     return Number(value);
   }
 
   static async getTokenSymbol(contractId: string): Promise<string> {
-    const { value } = await this.callReadOnly(contractId, "get-symbol");
+    const value = await this.callReadOnly(contractId, "get-symbol");
     return String(value);
   }
 
   static async getTokenName(contractId: string): Promise<string> {
-    const { value } = await this.callReadOnly(contractId, "get-name");
+    const value = await this.callReadOnly(contractId, "get-name");
     return String(value);
   }
 
@@ -83,7 +83,7 @@ export class StacksClient {
     holderContract: string
   ): Promise<number> {
     try {
-      const { value } = await this.callReadOnly(tokenContract, "get-balance", [
+      const value = await this.callReadOnly(tokenContract, "get-balance", [
         cvToHex(parseToCV(holderContract, "principal")),
       ]);
       return Number(value);
