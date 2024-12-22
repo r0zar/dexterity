@@ -21,7 +21,7 @@ import { DEFAULT_SDK_CONFIG, validateConfig } from "../config";
 import { ContractGenerator } from "./generator";
 
 export class Dexterity {
-  static cache: Cache;
+  static cache: Cache = Cache.getInstance();
   static config: SDKConfig = DEFAULT_SDK_CONFIG;
   static client: typeof StacksClient = StacksClient;
   static router: typeof Router = Router;
