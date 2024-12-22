@@ -279,37 +279,29 @@ export class Dexterity {
   ) {
     const cacheKey = `quote:${tokenInContract}:${tokenOutContract}:${amount}`;
 
-    try {
-      return await this.cache.getOrSet(
-        cacheKey,
-        async () => {
-          const routeResult = await this.router.findBestRoute(
-            tokenInContract,
-            tokenOutContract,
-            amount
-          );
+    return await this.cache.getOrSet(
+      cacheKey,
+      async () => {
+        const routeResult = await this.router.findBestRoute(
+          tokenInContract,
+          tokenOutContract,
+          amount
+        );
 
-          if (routeResult.isErr()) throw routeResult.unwrap();
-          const route = routeResult.unwrap();
+        if (routeResult.isErr()) throw routeResult.unwrap();
+        const route = routeResult.unwrap();
 
-          return {
-            route,
-            amountIn: route.amountIn,
-            amountOut: route.amountOut,
-            expectedPrice: route.amountOut / route.amountIn,
-            minimumReceived: route.amountOut,
-            fee: route.totalFees,
-          };
-        },
-        30000 // 30 second cache for quotes
-      );
-    } catch (error) {
-      throw ErrorUtils.createError(
-        ERROR_CODES.QUOTE_FAILED,
-        "Failed to get quote",
-        error
-      );
-    }
+        return {
+          route,
+          amountIn: route.amountIn,
+          amountOut: route.amountOut,
+          expectedPrice: route.amountOut / route.amountIn,
+          minimumReceived: route.amountOut,
+          fee: route.totalFees,
+        };
+      },
+      30000 // 30 second cache for quotes
+    );
   }
 
   /**

@@ -298,8 +298,8 @@ export class Router {
         if (!edge) throw new Error(`Edge not found: ${tokenOut.contractId}`);
 
         // Build an opcode for this direction
-        const [poolA, poolB] = edge.vault.getTokens();
-        const isAtoB = tokenIn.contractId === poolA.contractId;
+        const [tokenA] = edge.vault.getTokens();
+        const isAtoB = tokenIn.contractId === tokenA.contractId;
         const opcode = new Opcode().setOperation(isAtoB ? 0x00 : 0x01);
 
         debugUtils.incrementQuotesRequested();

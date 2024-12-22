@@ -36,6 +36,8 @@ describe("Dexterity SDK", () => {
       1000000
     );
 
+    console.log(quote);
+
     expect(quote.amountIn).toBe(1000000);
     expect(quote.amountOut).toBeGreaterThan(0);
   });
