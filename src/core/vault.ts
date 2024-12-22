@@ -135,7 +135,6 @@ export class Vault {
     [amount, opcode]: [number, Opcode]
   ): Promise<Delta> {
     let result;
-
     if (Dexterity.config.mode === "server") {
       const contractId = `${this.contractAddress}.${this.contractName}`;
       result = await Dexterity.client.callReadOnly(contractId, method, [
@@ -158,7 +157,6 @@ export class Vault {
       // });
       // result = cvToValue(response).value;
     }
-
     return {
       dx: Number(result.dx.value),
       dy: Number(result.dy.value),

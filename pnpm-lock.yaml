@@ -29,6 +29,9 @@ importers:
       dotenv:
         specifier: ^16.4.7
         version: 16.4.7
+      tests:
+        specifier: link:/Users/ross/Documents/dexterity/tests
+        version: link:tests
     devDependencies:
       '@types/node':
         specifier: ^20.0.0
