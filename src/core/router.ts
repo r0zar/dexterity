@@ -18,7 +18,13 @@ import {
   tupleCV,
   principalCV,
 } from "@stacks/transactions";
-import type { Token, Route, RouteHop, ExecuteOptions } from "../types";
+import type {
+  Token,
+  Route,
+  RouteHop,
+  ExecuteOptions,
+  ContractId,
+} from "../types";
 import { DEFAULT_SDK_CONFIG } from "../config";
 import { openContractCall, TransactionOptions } from "@stacks/connect";
 
@@ -170,28 +176,19 @@ export class Router {
   // Route-Finding & Evaluating
   // -----------------------------------
   static async findBestRoute(
-    tokenIn: Token,
-    tokenOut: Token,
+    tokenIn: ContractId,
+    tokenOut: ContractId,
     amount: number
   ): Promise<Result<Route, Error>> {
-    debugUtils.logPathfindingStart(
-      tokenIn.contractId,
-      tokenOut.contractId,
-      amount,
-      this.maxHops
-    );
-    const paths = this.findAllPaths(
-      tokenIn.contractId,
-      tokenOut.contractId,
-      this.maxHops
-    );
+    debugUtils.logPathfindingStart(tokenIn, tokenOut, amount, this.maxHops);
+    const paths = this.findAllPaths(tokenIn, tokenOut, this.maxHops);
 
     if (paths.length === 0) {
       debugUtils.logNoPathsFound();
       return Result.err(
         ErrorUtils.createError(
           ERROR_CODES.INVALID_PATH,
-          `No path found from ${tokenIn.contractId} to ${tokenOut.contractId}`
+          `No path found from ${tokenIn} to ${tokenOut}`
         )
       );
     }

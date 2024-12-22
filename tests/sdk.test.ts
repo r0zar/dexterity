@@ -29,33 +29,24 @@ describe("Dexterity SDK", () => {
     toToken = pools[0].liquidity[1];
   }, 200000);
 
-  it("should initialize successfully", () => {
-    expect(Dexterity.isInitialized()).toBe(true);
-    expect(Dexterity.router.vaults.size).toBeGreaterThan(0);
-  });
-
   it("should get direct swap quote", async () => {
-    const quoteResult = await Dexterity.getQuote(
+    const quote = await Dexterity.getQuote(
       fromToken.contractId,
       toToken.contractId,
       1000000
     );
-    expect(quoteResult.isOk()).toBe(true);
 
-    const quote = quoteResult.unwrap();
     expect(quote.amountIn).toBe(1000000);
     expect(quote.amountOut).toBeGreaterThan(0);
   });
 
   it("should get multi-hop quote", async () => {
-    const multiHopQuote = await Dexterity.getQuote(
+    const quote = await Dexterity.getQuote(
       pools[0].liquidity[0].contractId,
       pools[1].liquidity[1].contractId,
       10000000
     );
-    expect(multiHopQuote.isOk()).toBe(true);
 
-    const quote = multiHopQuote.unwrap();
     expect(quote.amountOut).toBeGreaterThan(0);
   });
 

@@ -59,17 +59,10 @@ export class Dexterity {
   }
 
   /**
-   * Check if SDK is properly initialized
-   */
-  static isInitialized(): boolean {
-    return this.router !== null;
-  }
-
-  /**
    * Get current configuration
    */
   static getConfig(): SDKConfig {
-    return { ...this.config };
+    return this.config;
   }
 
   /**
@@ -248,26 +241,9 @@ export class Dexterity {
     tokenOutContract: ContractId,
     amount: number
   ) {
-    if (!this.isInitialized()) {
-      throw ErrorUtils.createError(
-        ERROR_CODES.SDK_NOT_INITIALIZED,
-        "SDK not initialized"
-      );
-    }
-
-    const tokenIn = await this.router.nodes.get(tokenInContract)?.token;
-    const tokenOut = await this.router.nodes.get(tokenOutContract)?.token;
-
-    if (!tokenIn || !tokenOut) {
-      throw ErrorUtils.createError(
-        ERROR_CODES.INVALID_CONTRACT,
-        "Invalid token contract"
-      );
-    }
-
     const routeResult = await this.router.findBestRoute(
-      tokenIn,
-      tokenOut,
+      tokenInContract,
+      tokenOutContract,
       amount
     );
     const route = routeResult.unwrap();
@@ -283,27 +259,10 @@ export class Dexterity {
     amount: number,
     options?: ExecuteOptions
   ) {
-    if (!this.isInitialized()) {
-      throw ErrorUtils.createError(
-        ERROR_CODES.SDK_NOT_INITIALIZED,
-        "SDK not initialized"
-      );
-    }
-
-    const tokenIn = await this.router.nodes.get(tokenInContract)?.token;
-    const tokenOut = await this.router.nodes.get(tokenOutContract)?.token;
-
-    if (!tokenIn || !tokenOut) {
-      throw ErrorUtils.createError(
-        ERROR_CODES.INVALID_CONTRACT,
-        "Invalid token contract"
-      );
-    }
-
     // 1. Find the best route
     const routeResult = await this.router.findBestRoute(
-      tokenIn,
-      tokenOut,
+      tokenInContract,
+      tokenOutContract,
       amount
     );
     const route = routeResult.unwrap();
@@ -317,47 +276,30 @@ export class Dexterity {
     tokenInContract: ContractId,
     tokenOutContract: ContractId,
     amount: number
-  ): Promise<Result<Quote, Error>> {
-    if (!this.isInitialized()) {
-      throw ErrorUtils.createError(
-        ERROR_CODES.SDK_NOT_INITIALIZED,
-        "SDK not initialized"
-      );
-    }
-
+  ) {
     const cacheKey = `quote:${tokenInContract}:${tokenOutContract}:${amount}`;
-
-    const tokenIn = await this.router.nodes.get(tokenInContract)?.token;
-    const tokenOut = await this.router.nodes.get(tokenOutContract)?.token;
-
-    if (!tokenIn || !tokenOut) {
-      throw ErrorUtils.createError(
-        ERROR_CODES.INVALID_CONTRACT,
-        "Invalid token contract"
-      );
-    }
 
     try {
       return await this.cache.getOrSet(
         cacheKey,
         async () => {
           const routeResult = await this.router.findBestRoute(
-            tokenIn,
-            tokenOut,
+            tokenInContract,
+            tokenOutContract,
             amount
           );
 
           if (routeResult.isErr()) throw routeResult.unwrap();
           const route = routeResult.unwrap();
 
-          return Result.ok({
+          return {
+            route,
             amountIn: route.amountIn,
             amountOut: route.amountOut,
             expectedPrice: route.amountOut / route.amountIn,
-            minimumReceived:
-              route.amountOut * (1 - this.config.defaultSlippage! / 100),
+            minimumReceived: route.amountOut,
             fee: route.totalFees,
-          });
+          };
         },
         30000 // 30 second cache for quotes
       );
