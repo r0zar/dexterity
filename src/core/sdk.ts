@@ -64,8 +64,8 @@ export class Dexterity {
     }
 
     const vaults = pools.map((pool) => new Vault(pool));
-    console.log(vaults);
     this.router.loadVaults(vaults);
+    return pools;
   }
 
   private static async processPoolContract(
