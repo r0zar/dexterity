@@ -32,6 +32,7 @@ export class Vault {
   // ----------------
   async quote(amount: number, opcode: Opcode): Promise<Result<Quote, Error>> {
     try {
+      console.log("Quoting", amount, opcode);
       const contractQuote = await this.callContract("quote", [amount, opcode]);
       console.log(contractQuote);
       const { dx, dy, dk } = contractQuote as Delta;
