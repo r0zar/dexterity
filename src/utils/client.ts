@@ -39,6 +39,26 @@ export class StacksClient {
     return cvToValue(hexToCV(response.data.result)).value;
   }
 
+  static async proxyReadOnly(
+    contractId: string,
+    method: string,
+    args: any[] = []
+  ): Promise<any> {
+    const response = await fetch("https://charisma.rocks/api/v0/vault", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contractId,
+        method,
+        args,
+      }),
+    });
+
+    return response.json();
+  }
+
   static async getTokenMetadata(contractId: string): Promise<TokenMetadata> {
     const { value } = await this.callReadOnly(contractId, "get-token-uri");
 
