@@ -92,7 +92,7 @@ export class Vault {
         // Server-side: create and broadcast transaction
         const transaction = await makeContractCall({
           ...txConfig,
-          senderKey: options.senderKey,
+          senderKey: Dexterity.config.privateKey,
           fee: options.fee || 10000,
         });
         return broadcastTransaction({ transaction });

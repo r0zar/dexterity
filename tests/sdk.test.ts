@@ -1,10 +1,8 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import "dotenv/config";
 import { Dexterity } from "../src/core/sdk";
 import { LPToken, Token } from "../src/types";
 
 // Test data
-const TEST_ADDRESS = "SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS";
 const INVALID_TOKEN: Token = {
   contractId: "SP000000000000000000002Q6VF78.token-xyz",
   identifier: "xyz",
@@ -22,8 +20,6 @@ describe("Dexterity SDK", () => {
     const initResult = await Dexterity.initialize();
     expect(initResult.isOk()).toBe(true);
 
-    Dexterity.config.stxAddress = TEST_ADDRESS;
-
     for (const vault of Dexterity.router.vaults.values()) {
       pools.push(vault.getPool());
     }
@@ -35,12 +31,15 @@ describe("Dexterity SDK", () => {
 
   it("should initialize successfully", () => {
     expect(Dexterity.isInitialized()).toBe(true);
-    expect(Dexterity.config.stxAddress).toBe(TEST_ADDRESS);
     expect(Dexterity.router.vaults.size).toBeGreaterThan(0);
   });
 
   it("should get direct swap quote", async () => {
-    const quoteResult = await Dexterity.getQuote(fromToken, toToken, 1000000);
+    const quoteResult = await Dexterity.getQuote(
+      fromToken.contractId,
+      toToken.contractId,
+      1000000
+    );
     expect(quoteResult.isOk()).toBe(true);
 
     const quote = quoteResult.unwrap();
@@ -50,8 +49,8 @@ describe("Dexterity SDK", () => {
 
   it("should get multi-hop quote", async () => {
     const multiHopQuote = await Dexterity.getQuote(
-      pools[0].liquidity[0],
-      pools[1].liquidity[1],
+      pools[0].liquidity[0].contractId,
+      pools[1].liquidity[1].contractId,
       10000000
     );
     expect(multiHopQuote.isOk()).toBe(true);
@@ -62,8 +61,8 @@ describe("Dexterity SDK", () => {
 
   it("should build direct swap transaction", async () => {
     const swapConfig = await Dexterity.buildSwap(
-      pools[0].liquidity[0],
-      pools[0].liquidity[1],
+      pools[0].liquidity[0].contractId,
+      pools[0].liquidity[1].contractId,
       1000
     );
 
@@ -80,8 +79,8 @@ describe("Dexterity SDK", () => {
 
   it("should build multi-hop swap transaction", async () => {
     const multiHopSwapConfig = await Dexterity.buildSwap(
-      pools[0].liquidity[0],
-      pools[1].liquidity[1],
+      pools[0].liquidity[0].contractId,
+      pools[1].liquidity[1].contractId,
       10000
     );
 
@@ -103,8 +102,8 @@ describe("Dexterity SDK", () => {
   describe("Edge Cases", () => {
     it("should handle small amounts", async () => {
       const smallQuote = await Dexterity.getQuote(
-        pools[0].liquidity[0],
-        pools[0].liquidity[1],
+        pools[0].liquidity[0].contractId,
+        pools[0].liquidity[1].contractId,
         10
       );
       expect(smallQuote.isOk()).toBe(true);
@@ -113,19 +112,30 @@ describe("Dexterity SDK", () => {
     });
     it("should handle large amounts", async () => {
       const largeQuote = await Dexterity.getQuote(
-        pools[0].liquidity[0],
-        pools[0].liquidity[1],
+        pools[0].liquidity[0].contractId,
+        pools[0].liquidity[1].contractId,
         1000000000
       );
       expect(largeQuote.isOk()).toBe(true);
     });
     it("should handle invalid paths", async () => {
       const invalidQuote = await Dexterity.getQuote(
-        INVALID_TOKEN,
-        pools[0].liquidity[1],
+        INVALID_TOKEN.contractId,
+        pools[0].liquidity[1].contractId,
         1000
       );
       expect(invalidQuote.isErr()).toBe(true);
     });
   });
+
+  // describe("Transaction Execution", async () => {
+  //   it("should execute swap transaction", async () => {
+  //     const response = await Dexterity.executeSwap(
+  //       pools[1].liquidity[1].contractId,
+  //       pools[1].liquidity[0].contractId,
+  //       1000000
+  //     );
+  //     console.log({ response });
+  //   });
+  // });
 }, 200000);

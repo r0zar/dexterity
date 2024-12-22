@@ -46,6 +46,7 @@ export class ContractGenerator {
         network: Dexterity.config.network,
         postConditionMode: PostConditionMode.Allow,
         fee: options.fee || 400000,
+        clarityVersion: 3,
       });
       return broadcastTransaction({ transaction });
     } else {
@@ -56,6 +57,7 @@ export class ContractGenerator {
         postConditionMode: PostConditionMode.Allow,
         network: Dexterity.config.network,
         fee: options.fee || 400000,
+        clarityVersion: 3,
       });
     }
   }

@@ -15,6 +15,8 @@ import {
   broadcastTransaction,
   ClarityValue,
   ContractCallOptions,
+  tupleCV,
+  principalCV,
 } from "@stacks/transactions";
 import type { Token, Route, RouteHop, ExecuteOptions } from "../types";
 import { DEFAULT_SDK_CONFIG } from "../config";
@@ -57,15 +59,22 @@ export class Router {
       allPostConditions.push(...pc);
     }
 
+    const functionArgs = [
+      uintCV(amount),
+      ...route.hops.map((hop) =>
+        tupleCV({
+          pool: principalCV(hop.vault.getPool().contractId),
+          opcode: hop.opcode.build(),
+        })
+      ),
+    ];
+
     return {
       network: Dexterity.config.network!,
       contractAddress: Dexterity.config.routerAddress!,
       contractName: Dexterity.config.routerName!,
       functionName: `swap-${route.hops.length}`,
-      functionArgs: [
-        uintCV(amount),
-        ...route.hops.map((hop) => hop.opcode.build()),
-      ],
+      functionArgs,
       postConditionMode: PostConditionMode.Deny,
       postConditions: allPostConditions,
     };
@@ -77,25 +86,24 @@ export class Router {
   static async executeSwap(
     route: Route,
     amount: number,
-    options: ExecuteOptions
+    options?: ExecuteOptions
   ): Promise<TxBroadcastResult | void> {
     try {
       // First build the transaction config
       const txConfig = this.buildRouterTransaction(route, amount);
-
       if (Dexterity.config.mode === "server") {
         // Server-side: create and broadcast transaction
         const transaction = await makeContractCall({
           ...txConfig,
-          senderKey: options.senderKey,
-          fee: options.fee || 10000,
+          senderKey: Dexterity.config.privateKey,
+          fee: options?.fee || 10000,
         });
         return broadcastTransaction({ transaction });
       } else {
         // Client-side: use wallet to sign and broadcast
         await openContractCall({
           ...txConfig,
-          fee: options.fee || 10000,
+          fee: options?.fee || 10000,
         });
       }
     } catch (error) {

@@ -1,15 +1,6 @@
-// src/utils/client.ts
-
 import { createClient, Client } from "@stacks/blockchain-api-client";
-import { STACKS_MAINNET, StacksNetwork } from "@stacks/network";
-import {
-  cvToValue,
-  hexToCV,
-  cvToJSON,
-  parseToCV,
-  cvToHex,
-} from "@stacks/transactions";
-import { SDKConfig, TokenMetadata } from "../types";
+import { cvToValue, hexToCV, parseToCV, cvToHex } from "@stacks/transactions";
+import { TokenMetadata } from "../types";
 import { paths } from "@stacks/blockchain-api-client/lib/generated/schema";
 import { Dexterity } from "../core/sdk";
 import { DEFAULT_SDK_CONFIG } from "../config";
@@ -61,6 +52,15 @@ export class StacksClient {
     }
 
     return response.json();
+  }
+
+  static async getTokenIdentifier(contractId: string): Promise<string> {
+    const response = await this.client.GET(
+      "/extended/v1/contract/{contract_id}",
+      { params: { path: { contract_id: contractId } } }
+    );
+    const abi = JSON.parse(response.data?.abi!);
+    return abi.fungible_tokens[0].name;
   }
 
   static async getTokenDecimals(contractId: string): Promise<number> {

@@ -1,14 +1,13 @@
-import {
-  cvToValue,
-  hexToCV,
-  cvToJSON,
-  parseToCV,
-  cvToHex,
-} from "@stacks/transactions";
-import { TokenMetadata, DexterityError } from "../types";
-import { CACHE_CONFIG, TOKEN_FUNCTIONS } from "../constants";
+import { DexterityError } from "../types";
+import { CACHE_CONFIG } from "../constants";
 import { createClient, Client } from "@stacks/blockchain-api-client";
 import { StacksNetwork } from "@stacks/network";
+import {
+  generateNewAccount,
+  generateWallet,
+  getStxAddress,
+} from "@stacks/wallet-sdk";
+import { Dexterity } from "../core/sdk";
 
 let clientInstance: Client<any, any> | null = null;
 
@@ -258,3 +257,30 @@ export const ErrorUtils = {
     return error;
   },
 };
+
+export async function deriveSigner(index = 0) {
+  if (process.env.SEED_PHRASE) {
+    // using a blank password since wallet isn't persisted
+    const password = "";
+    // create a Stacks wallet with the mnemonic
+    let wallet = await generateWallet({
+      secretKey: process.env.SEED_PHRASE,
+      password: password,
+    });
+    // add a new account to reach the selected index
+    for (let i = 0; i <= index; i++) {
+      wallet = generateNewAccount(wallet);
+    }
+    // return address and key for selected index
+    const stxAddress = getStxAddress(
+      wallet.accounts[index],
+      Dexterity.config.network
+    );
+
+    Dexterity.config.mode = "server";
+    Dexterity.config.privateKey = wallet.accounts[index].stxPrivateKey;
+    Dexterity.config.stxAddress = stxAddress;
+  } else {
+    Dexterity.config.mode = "client";
+  }
+}

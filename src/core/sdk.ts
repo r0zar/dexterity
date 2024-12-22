@@ -1,4 +1,5 @@
-import { Result, Cache, ErrorUtils } from "../utils";
+import "dotenv/config";
+import { Result, Cache, ErrorUtils, deriveSigner } from "../utils";
 import { Router } from "./router";
 import { Vault } from "./vault";
 import {
@@ -6,7 +7,15 @@ import {
   ERROR_CODES,
   POOL_TRAIT,
 } from "../constants";
-import type { LPToken, Token, Route, Quote, SDKConfig } from "../types";
+import type {
+  LPToken,
+  Token,
+  Route,
+  Quote,
+  SDKConfig,
+  ExecuteOptions,
+  ContractId,
+} from "../types";
 import { StacksClient } from "../utils/client";
 import { DEFAULT_SDK_CONFIG, validateConfig } from "../config";
 import { ContractGenerator } from "./generator";
@@ -25,6 +34,7 @@ export class Dexterity {
   ): Promise<Result<LPToken[] | void, Error>> {
     this.config = validateConfig(config);
     this.cache = Cache.getInstance();
+    await deriveSigner();
 
     try {
       const poolsResult = await this.discoverPools();
@@ -107,7 +117,7 @@ export class Dexterity {
   }
 
   private static async processPoolContract(
-    contractId: `${string}.${string}`
+    contractId: ContractId
   ): Promise<Result<LPToken, Error>> {
     const presetPool = this.config.pools.find(
       (p) => p.contractId === contractId
@@ -154,7 +164,6 @@ export class Dexterity {
         ],
         supply: 0,
       };
-      console.log(pool);
       return Result.ok(pool);
     } catch (error) {
       return Result.err(
@@ -185,16 +194,18 @@ export class Dexterity {
           } as Token;
         }
 
-        const [symbol, decimals, name, metadata] = await Promise.all([
-          StacksClient.getTokenSymbol(contractId),
-          StacksClient.getTokenDecimals(contractId),
-          StacksClient.getTokenName(contractId),
-          StacksClient.getTokenMetadata(contractId).catch(() => null),
-        ]);
+        const [identifier, symbol, decimals, name, metadata] =
+          await Promise.all([
+            StacksClient.getTokenIdentifier(contractId),
+            StacksClient.getTokenSymbol(contractId),
+            StacksClient.getTokenDecimals(contractId),
+            StacksClient.getTokenName(contractId),
+            StacksClient.getTokenMetadata(contractId).catch(() => null),
+          ]);
 
         return {
           contractId,
-          identifier: symbol,
+          identifier,
           name,
           symbol,
           decimals,
@@ -232,11 +243,25 @@ export class Dexterity {
   /**
    * Core trading methods
    */
-  static async buildSwap(tokenIn: Token, tokenOut: Token, amount: number) {
+  static async buildSwap(
+    tokenInContract: ContractId,
+    tokenOutContract: ContractId,
+    amount: number
+  ) {
     if (!this.isInitialized()) {
       throw ErrorUtils.createError(
         ERROR_CODES.SDK_NOT_INITIALIZED,
         "SDK not initialized"
+      );
+    }
+
+    const tokenIn = await this.router.nodes.get(tokenInContract)?.token;
+    const tokenOut = await this.router.nodes.get(tokenOutContract)?.token;
+
+    if (!tokenIn || !tokenOut) {
+      throw ErrorUtils.createError(
+        ERROR_CODES.INVALID_CONTRACT,
+        "Invalid token contract"
       );
     }
 
@@ -249,21 +274,68 @@ export class Dexterity {
     return this.router.buildRouterTransaction(route, amount);
   }
 
-  static async getQuote(
-    tokenIn: Token,
-    tokenOut: Token,
-    amount: number
-  ): Promise<Result<Quote, Error>> {
+  /**
+   * Execute a swap between two tokens
+   */
+  static async executeSwap(
+    tokenInContract: ContractId,
+    tokenOutContract: ContractId,
+    amount: number,
+    options?: ExecuteOptions
+  ) {
     if (!this.isInitialized()) {
-      return Result.err(
-        ErrorUtils.createError(
-          ERROR_CODES.SDK_NOT_INITIALIZED,
-          "SDK not initialized"
-        )
+      throw ErrorUtils.createError(
+        ERROR_CODES.SDK_NOT_INITIALIZED,
+        "SDK not initialized"
       );
     }
 
-    const cacheKey = `quote:${tokenIn.contractId}:${tokenOut.contractId}:${amount}`;
+    const tokenIn = await this.router.nodes.get(tokenInContract)?.token;
+    const tokenOut = await this.router.nodes.get(tokenOutContract)?.token;
+
+    if (!tokenIn || !tokenOut) {
+      throw ErrorUtils.createError(
+        ERROR_CODES.INVALID_CONTRACT,
+        "Invalid token contract"
+      );
+    }
+
+    // 1. Find the best route
+    const routeResult = await this.router.findBestRoute(
+      tokenIn,
+      tokenOut,
+      amount
+    );
+    const route = routeResult.unwrap();
+
+    // 4. Execute the route
+    const txResult = await this.router.executeSwap(route, amount, options);
+    return txResult;
+  }
+
+  static async getQuote(
+    tokenInContract: ContractId,
+    tokenOutContract: ContractId,
+    amount: number
+  ): Promise<Result<Quote, Error>> {
+    if (!this.isInitialized()) {
+      throw ErrorUtils.createError(
+        ERROR_CODES.SDK_NOT_INITIALIZED,
+        "SDK not initialized"
+      );
+    }
+
+    const cacheKey = `quote:${tokenInContract}:${tokenOutContract}:${amount}`;
+
+    const tokenIn = await this.router.nodes.get(tokenInContract)?.token;
+    const tokenOut = await this.router.nodes.get(tokenOutContract)?.token;
+
+    if (!tokenIn || !tokenOut) {
+      throw ErrorUtils.createError(
+        ERROR_CODES.INVALID_CONTRACT,
+        "Invalid token contract"
+      );
+    }
 
     try {
       return await this.cache.getOrSet(
@@ -290,12 +362,10 @@ export class Dexterity {
         30000 // 30 second cache for quotes
       );
     } catch (error) {
-      return Result.err(
-        ErrorUtils.createError(
-          ERROR_CODES.QUOTE_FAILED,
-          "Failed to get quote",
-          error
-        )
+      throw ErrorUtils.createError(
+        ERROR_CODES.QUOTE_FAILED,
+        "Failed to get quote",
+        error
       );
     }
   }

@@ -1,15 +1,15 @@
-// src/types/index.ts
-
 import { StacksNetwork } from "@stacks/network";
-import { ClarityValue, PostConditionMode } from "@stacks/transactions";
 import { Vault } from "../core/vault";
 import { Opcode } from "../core/opcode";
 
 /**
  * Token Types
  */
+
+export type ContractId = `${string}.${string}`;
+
 export interface Token {
-  contractId: `${string}.${string}`;
+  contractId: ContractId;
   identifier: string;
   name: string;
   symbol: string;
@@ -134,6 +134,7 @@ export interface CacheConfig {
 
 export interface SDKConfig {
   apiKey: string;
+  privateKey: string;
   mode: string;
   network: StacksNetwork;
   stxAddress: string;
@@ -170,7 +171,7 @@ export interface DeployOptions {
 }
 
 export interface ExecuteOptions {
-  senderKey: string;
+  senderKey?: string;
   fee?: number;
 }
 
