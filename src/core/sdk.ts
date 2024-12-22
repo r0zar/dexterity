@@ -386,6 +386,31 @@ export class Dexterity {
   }
 
   /**
+   * Get all swappable tokens
+   */
+  static getTokens() {
+    // Use a Map to deduplicate tokens
+    const tokens = new Map<string, Token>();
+    // Collect unique tokens from all liquidity pairs
+    for (const pool of this.config.pools) {
+      for (const token of pool.liquidity) {
+        if (!tokens.has(token.contractId)) {
+          tokens.set(token.contractId, {
+            contractId: token.contractId,
+            name: token.name,
+            symbol: token.symbol,
+            decimals: token.decimals,
+            identifier: token.identifier,
+            description: token.description,
+            image: token.image,
+          });
+        }
+      }
+    }
+    return Array.from(tokens.values());
+  }
+
+  /**
    * Contract generation methods
    */
   static generateVaultContract(config: LPToken): ContractGenerator {
