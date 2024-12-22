@@ -140,7 +140,6 @@ export interface SDKConfig {
   stxAddress: string;
   defaultSlippage: number;
   maxHops: number;
-  pools: LPToken[];
   preferredPools: string[];
   routerAddress: string;
   routerName: string;

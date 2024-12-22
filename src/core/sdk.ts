@@ -112,13 +112,8 @@ export class Dexterity {
   private static async processPoolContract(
     contractId: ContractId
   ): Promise<Result<LPToken, Error>> {
-    const presetPool = this.config.pools.find(
-      (p) => p.contractId === contractId
-    );
-    if (presetPool) return Result.ok(presetPool);
     try {
       const metadata = await this.client.getTokenMetadata(contractId);
-
       if (!metadata.properties) {
         return Result.err(
           ErrorUtils.createError(
@@ -127,18 +122,15 @@ export class Dexterity {
           )
         );
       }
-
       const [token0, token1] = await Promise.all([
         this.getTokenInfo(metadata.properties.tokenAContract),
         this.getTokenInfo(metadata.properties.tokenBContract),
       ]);
-
       const [reserve0, reserve1] = await this.getPoolReserves(
         contractId,
         metadata.properties.tokenAContract,
         metadata.properties.tokenBContract
       );
-
       const fee = Math.floor(
         (metadata.properties.lpRebatePercent / 100) * 1000000
       );

@@ -92,6 +92,11 @@ describe("Dexterity SDK", () => {
     expect(chaVaults.size).toBeGreaterThan(0);
   });
 
+  it("should get tokens", () => {
+    const tokens = Dexterity.getTokens();
+    console.log(tokens);
+  });
+
   // describe("Transaction Execution", async () => {
   //   it("should execute swap transaction", async () => {
   //     const response = await Dexterity.executeSwap(
