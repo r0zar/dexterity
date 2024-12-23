@@ -44,7 +44,7 @@ export class StacksClient {
     method: string,
     args: any[] = []
   ): Promise<any> {
-    const response = await fetch("https://charisma.rocks/api/v0/vault", {
+    const response = await fetch(Dexterity.config.proxy, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

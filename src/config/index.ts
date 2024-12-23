@@ -6,6 +6,7 @@ export const DEFAULT_SDK_CONFIG: SDKConfig = {
   privateKey: "",
   mode: "server",
   stxAddress: "",
+  proxy: "https://charisma.rocks/api/v0/vault",
   network: STACKS_MAINNET,
   defaultSlippage: 0.5,
   maxHops: 5,

@@ -137,6 +137,7 @@ export interface SDKConfig {
   privateKey: string;
   mode: string;
   network: StacksNetwork;
+  proxy: string;
   stxAddress: string;
   defaultSlippage: number;
   maxHops: number;
