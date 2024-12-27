@@ -28,7 +28,7 @@ import { CustomCache } from "../utils/cache/custom";
 import { MemoryCache } from "../utils/cache/memory";
 
 export class Dexterity {
-  static cache: CacheProvider = new CharismaCache();
+  static cache: CacheProvider = MemoryCache.getInstance();
   static config: SDKConfig = DEFAULT_SDK_CONFIG;
   static client: typeof StacksClient = StacksClient;
   static router: typeof Router = Router;

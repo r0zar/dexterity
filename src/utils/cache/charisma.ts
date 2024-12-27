@@ -23,8 +23,8 @@ export class CharismaCache implements CacheProvider {
             name: data.name,
             symbol: data.symbol,
             decimals: data.decimals,
-            description: data.description,
-            image: data.image,
+            description: data.description || "",
+            image: data.image || "",
           } as T;
         }
       } catch (error) {
