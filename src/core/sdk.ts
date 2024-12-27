@@ -162,8 +162,8 @@ export class Dexterity {
           name,
           symbol,
           decimals,
-          description: metadata?.description,
-          image: metadata?.image,
+          description: metadata?.description || "",
+          image: metadata?.image || "",
         } as Token;
       } catch (error) {
         console.error(`Error fetching token info for ${contractId}:`, error);
