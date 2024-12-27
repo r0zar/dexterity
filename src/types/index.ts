@@ -186,6 +186,26 @@ export interface PoolEvent {
 }
 
 /**
+ * Cache Types
+ */
+export interface CacheEntry<T> {
+  value: T;
+  expiry: number;
+}
+
+export interface CacheProvider {
+  getOrSet<T>(
+    key: string,
+    fetchFn: () => Promise<T>,
+    ttlMs?: number
+  ): Promise<T>;
+  set<T>(key: string, value: T, ttlMs?: number): void;
+  get<T>(key: string): Promise<T | undefined>;
+  invalidate(key: string): void;
+  clear(): void;
+}
+
+/**
  * Error Types
  */
 export interface DexterityError extends Error {

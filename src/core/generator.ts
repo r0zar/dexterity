@@ -1,5 +1,4 @@
 import {
-  AnchorMode,
   broadcastTransaction,
   makeContractDeploy,
   PostConditionMode,
@@ -7,9 +6,7 @@ import {
 } from "@stacks/transactions";
 import { openContractDeploy } from "@stacks/connect";
 import type { ContractParams, DeployOptions, LPToken } from "../types";
-import { ErrorUtils, Result } from "../utils";
 import { Dexterity } from "./sdk";
-import { ERROR_CODES } from "../constants";
 
 export class ContractGenerator {
   static generateVaultContract(config: LPToken): string {

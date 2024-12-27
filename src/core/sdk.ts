@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Result, Cache, ErrorUtils } from "../utils";
+import { Result, ErrorUtils } from "../utils";
 import { Router } from "./router";
 import { Vault } from "./vault";
 import {
@@ -10,26 +10,33 @@ import {
 import type {
   LPToken,
   Token,
-  Route,
-  Quote,
   SDKConfig,
   ExecuteOptions,
   ContractId,
+  CacheProvider,
 } from "../types";
 import { StacksClient } from "../utils/client";
-import { DEFAULT_SDK_CONFIG, validateConfig } from "../config";
+import { DEFAULT_SDK_CONFIG } from "../config";
 import { ContractGenerator } from "./generator";
 import {
   generateNewAccount,
   generateWallet,
   getStxAddress,
 } from "@stacks/wallet-sdk";
+import { CharismaCache } from "../utils/cache/charisma";
+import { CustomCache } from "../utils/cache/custom";
+import { MemoryCache } from "../utils/cache/memory";
 
 export class Dexterity {
-  static cache: Cache = Cache.getInstance();
+  static cache: CacheProvider = new CharismaCache();
   static config: SDKConfig = DEFAULT_SDK_CONFIG;
   static client: typeof StacksClient = StacksClient;
   static router: typeof Router = Router;
+  static cacheProviders = {
+    CharismaCache,
+    CustomCache,
+    MemoryCache,
+  };
 
   /**
    * Get current configuration

@@ -45,10 +45,8 @@ import { STACKS_MAINNET } from "@stacks/network";
 // Initialize SDK with configuration
 Dexterity.config = {
   network: STACKS_MAINNET,
-  mode: "client", // or "server" for non-browser environments
+  mode: "server", // or "client" for browser environments
   apiKey: "YOUR_HIRO_API_KEY",
-  defaultSlippage: 0.5,
-  maxHops: 3,
 };
 
 // Discover available pools
@@ -76,10 +74,7 @@ The SDK can be configured for both client-side (browser) and server-side usage:
 Dexterity.config = {
   mode: "client",
   network: STACKS_MAINNET,
-  apiKey: "YOUR_HIRO_API_KEY",
   proxy: "https://your-api-proxy.com",
-  defaultSlippage: 0.5,
-  maxHops: 3,
 };
 
 // Server-side configuration
@@ -150,6 +145,8 @@ The SDK includes utilities for generating new vault contracts:
 
 ```typescript
 // Configure pool parameters
+const tokenA = await Dexterity.getTokenInfo("SP123.token-a");
+const tokenB = await Dexterity.getTokenInfo("SP123.token-b");
 const poolConfig: LPToken = {
   contractId: "SP123.pool-token",
   name: "Token A-B Pool",
@@ -158,20 +155,12 @@ const poolConfig: LPToken = {
   fee: 3000, // 0.3%
   liquidity: [
     {
-      contractId: "SP123.token-a",
-      identifier: "token-a",
-      name: "Token A",
-      symbol: "TA",
-      decimals: 6,
-      reserves: 1000000000,
+      ...tokenA, // swappable token A
+      reserves: 1000000000, // initial liquidity A
     },
     {
-      contractId: "SP456.token-b",
-      identifier: "token-b",
-      name: "Token B",
-      symbol: "TB",
-      decimals: 6,
-      reserves: 1000000000,
+      ...tokenB, // swappable token B
+      reserves: 1000000000, // initial liquidity B
     },
   ],
 };
