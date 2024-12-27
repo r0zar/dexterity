@@ -32,15 +32,15 @@ describe("Dexterity SDK", () => {
     expect(quote.amountOut).toBeGreaterThan(0);
   });
 
-  // it("should get multi-hop quote", async () => {
-  //   const quote = await Dexterity.getQuote(
-  //     pools[0].liquidity[0].contractId,
-  //     pools[1].liquidity[1].contractId,
-  //     10000000
-  //   );
+  it("should get multi-hop quote", async () => {
+    const quote = await Dexterity.getQuote(
+      pools[0].liquidity[0].contractId,
+      pools[1].liquidity[1].contractId,
+      10000000
+    );
 
-  //   expect(quote.amountOut).toBeGreaterThan(0);
-  // });
+    expect(quote.amountOut).toBeGreaterThan(0);
+  });
 
   it("should build direct swap transaction", async () => {
     const swapConfig = await Dexterity.buildSwap(
@@ -60,17 +60,17 @@ describe("Dexterity SDK", () => {
     expect(opcodeArg).toBeTypeOf("object"); // clarity value
   });
 
-  // it("should build multi-hop swap transaction", async () => {
-  //   const multiHopSwapConfig = await Dexterity.buildSwap(
-  //     pools[0].liquidity[0].contractId,
-  //     pools[1].liquidity[1].contractId,
-  //     10000
-  //   );
+  it("should build multi-hop swap transaction", async () => {
+    const multiHopSwapConfig = await Dexterity.buildSwap(
+      pools[0].liquidity[0].contractId,
+      pools[1].liquidity[1].contractId,
+      10000
+    );
 
-  //   expect(multiHopSwapConfig).toHaveProperty("functionName");
-  //   expect(multiHopSwapConfig.functionName).toMatch(/^swap-/);
-  //   expect(multiHopSwapConfig.postConditions.length).toBeGreaterThanOrEqual(2);
-  // });
+    expect(multiHopSwapConfig).toHaveProperty("functionName");
+    expect(multiHopSwapConfig.functionName).toMatch(/^swap-/);
+    expect(multiHopSwapConfig.postConditions.length).toBeGreaterThanOrEqual(2);
+  });
 
   it("should get tokens", () => {
     const tokens = Dexterity.getTokens();
