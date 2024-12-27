@@ -155,7 +155,6 @@ export interface SDKConfig {
 }
 
 export interface ContractParams {
-  tokenUri: string;
   tokenAContract: string;
   tokenBContract: string;
   lpTokenName: string;
@@ -163,11 +162,6 @@ export interface ContractParams {
   lpRebatePercent: number;
   initialLiquidityA: number;
   initialLiquidityB: number;
-}
-
-export interface DeployOptions {
-  senderKey: string;
-  fee?: number;
 }
 
 export interface ExecuteOptions {

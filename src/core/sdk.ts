@@ -306,13 +306,6 @@ export class Dexterity {
     return Array.from(tokens.values());
   }
 
-  /**
-   * Contract generation methods
-   */
-  static generateVaultContract(config: LPToken): ContractGenerator {
-    return ContractGenerator.generateVaultContract(config);
-  }
-
   static async deriveSigner(index = 0) {
     if (process.env.SEED_PHRASE) {
       // using a blank password since wallet isn't persisted

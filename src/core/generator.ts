@@ -5,48 +5,28 @@ import {
   TxBroadcastResult,
 } from "@stacks/transactions";
 import { openContractDeploy } from "@stacks/connect";
-import type { ContractParams, DeployOptions, LPToken } from "../types";
+import type { LPToken } from "../types";
 import { Dexterity } from "./sdk";
 
 export class ContractGenerator {
-  private static getTokenUri(contractId: `${string}.${string}`): string {
-    return `https://charisma.rocks/api/v0/metadata/${contractId}`;
-  }
-
-  static generateVaultContract(config: LPToken): string {
-    const params = {
-      tokenUri: ContractGenerator.getTokenUri(config.contractId),
-      tokenAContract: config.liquidity[0].contractId,
-      tokenBContract: config.liquidity[1].contractId,
-      lpTokenName: config.name,
-      lpTokenSymbol: config.symbol,
-      lpRebatePercent: config.fee,
-      initialLiquidityA: config.liquidity[0].reserves,
-      initialLiquidityB: config.liquidity[1].reserves,
-    };
-
-    return this.generateContractCode(params);
-  }
-
   /**
    * Deploy contract
    */
   static async deployContract(
-    config: LPToken,
-    options: DeployOptions
+    config: LPToken
   ): Promise<TxBroadcastResult | void> {
-    const contractSource = this.generateVaultContract(config);
+    const contractSource = this.generateContractCode(config);
     const [, name] = config.contractId.split(".");
     // Deploy contract based on mode
     if (Dexterity.config.mode === "server") {
       // Server-side: deploy contract with senderKey
       const transaction = await makeContractDeploy({
-        senderKey: options.senderKey,
+        senderKey: Dexterity.config.privateKey,
         contractName: name,
         codeBody: contractSource,
         network: Dexterity.config.network,
         postConditionMode: PostConditionMode.Allow,
-        fee: options.fee || 400000,
+        fee: 400000,
         clarityVersion: 3,
       });
       return broadcastTransaction({ transaction });
@@ -57,23 +37,21 @@ export class ContractGenerator {
         codeBody: contractSource,
         postConditionMode: PostConditionMode.Allow,
         network: Dexterity.config.network,
-        fee: options.fee || 400000,
+        fee: 400000,
         clarityVersion: 3,
       });
     }
   }
 
-  private static generateContractCode(params: ContractParams): string {
-    const {
-      tokenUri,
-      tokenAContract,
-      tokenBContract,
-      lpTokenName,
-      lpTokenSymbol,
-      lpRebatePercent,
-      initialLiquidityA,
-      initialLiquidityB,
-    } = params;
+  private static generateContractCode(config: LPToken): string {
+    const contractId = config.contractId;
+    const tokenAContract = config.liquidity[0].contractId;
+    const tokenBContract = config.liquidity[1].contractId;
+    const lpTokenName = config.name;
+    const lpTokenSymbol = config.symbol;
+    const lpRebatePercent = config.fee;
+    const initialLiquidityA = config.liquidity[0].reserves;
+    const initialLiquidityB = config.liquidity[1].reserves;
 
     // Check which token is STX (if any)
     const isTokenAStx = tokenAContract === ".stx";
@@ -147,7 +125,7 @@ export class ContractGenerator {
 
 ;; Define LP token
 (define-fungible-token ${lpTokenSymbol})
-(define-data-var token-uri (optional (string-utf8 256)) (some u"${tokenUri}"))
+(define-data-var token-uri (optional (string-utf8 256)) (some u"https://charisma.rocks/api/v0/metadata/${contractId}"))
 
 ;; --- SIP10 Functions ---
 
