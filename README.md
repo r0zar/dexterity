@@ -44,9 +44,7 @@ import { STACKS_MAINNET } from "@stacks/network";
 
 // Initialize SDK with configuration
 Dexterity.config = {
-  network: STACKS_MAINNET,
   mode: "server", // or "client" for browser environments
-  apiKey: "YOUR_HIRO_API_KEY",
 };
 
 // Discover available pools
@@ -65,6 +63,24 @@ await Dexterity.executeSwap("SP123.token-a", "SP456.token-b", 1000000);
 
 ## Core Concepts
 
+### Environment Variables
+
+```bash
+# .env
+STACKS_API_KEY="1975...f12c"
+SEED_PHRASE="lunar fire amazing world ... big alcohol seven journey"
+```
+
+### Initialization
+
+If providing seed phrase as an environment variable in a secure environment:
+
+```typescript
+await Dexterity.deriveSigner();
+```
+
+This will setup the sender key to sign and broadcast transactions.
+
 ### Configuration
 
 The SDK can be configured for both client-side (browser) and server-side usage:
@@ -72,19 +88,25 @@ The SDK can be configured for both client-side (browser) and server-side usage:
 ```typescript
 // Client-side configuration
 Dexterity.config = {
-  mode: "client",
-  network: STACKS_MAINNET,
-  proxy: "https://your-api-proxy.com",
+  mode: "client", // or "server" for non-browser environments
 };
 
 // Server-side configuration
 Dexterity.config = {
   mode: "server",
   network: STACKS_MAINNET,
-  privateKey: "your-private-key",
-  apiKey: "YOUR_HIRO_API_KEY",
-  stxAddress: "your-stx-address",
+  apiKey: "HIRO_API_KEY",
 };
+```
+
+Any configuration setting can be modified directly:
+
+```typescript
+Dexterity.config.mode = "client";
+
+Dexterity.config.network = STACKS_TESTNET;
+
+Dexterity.config.cache = CustomCache();
 ```
 
 ### Working with Vaults
