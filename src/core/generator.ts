@@ -9,6 +9,10 @@ import type { ContractParams, DeployOptions, LPToken } from "../types";
 import { Dexterity } from "./sdk";
 
 export class ContractGenerator {
+  private static getTokenUri(contractId: `${string}.${string}`): string {
+    return `https://charisma.rocks/api/v0/metadata/${contractId}`;
+  }
+
   static generateVaultContract(config: LPToken): string {
     const params = {
       tokenUri: ContractGenerator.getTokenUri(config.contractId),
@@ -361,9 +365,5 @@ export class ContractGenerator {
     }
 
     return mainContract + initializationBlock + `)`;
-  }
-
-  private static getTokenUri(contractId: `${string}.${string}`): string {
-    return `https://charisma.rocks/api/v0/metadata/${contractId}`;
   }
 }
