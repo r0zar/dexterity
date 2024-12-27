@@ -1,6 +1,6 @@
 {
   "name": "dexterity-sdk",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "SDK for interacting with Dexterity AMM protocol",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -38,8 +38,7 @@
     "@stacks/network": "7.0.2",
     "@stacks/transactions": "7.0.2",
     "@stacks/wallet-sdk": "^7.0.2",
-    "dotenv": "^16.4.7",
-    "tests": "link:/Users/ross/Documents/dexterity/tests"
+    "dotenv": "^16.4.7"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
