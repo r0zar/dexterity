@@ -174,6 +174,45 @@ const result = await ContractGenerator.deployContract(poolConfig, {
 });
 ```
 
+## Cache Configuration
+
+The SDK includes a configurable caching layer that supports Charisma, in-memory, and custom cache providers:
+
+```typescript
+// Default Charisma cache
+// No configuration needed - this is the default
+
+// Using a custom cache provider
+const customCache = new Dexterity.cacheProviders.CustomCache({
+  get: async (key: string) => {
+    // Your custom get logic
+    return await yourCache.get(key);
+  },
+  set: async (key: string, value: any, ttlMs?: number) => {
+    // Your custom set logic
+    await yourCache.set(key, value, ttlMs);
+  },
+});
+
+// Set the cache provider
+Dexterity.cache = customCache;
+
+// Example with Vercel KV
+import { kv } from "@vercel/kv";
+
+const kvCache = new Dexterity.cacheProviders.CustomCache({
+  get: async (key) => await kv.get(key),
+  set: async (key, value, ttlMs) => {
+    const ttlSeconds = ttlMs ? Math.floor(ttlMs / 1000) : undefined;
+    await kv.set(key, value, ttlSeconds ? { ex: ttlSeconds } : undefined);
+  },
+});
+
+Dexterity.cache = kvCache;
+```
+
+The cache is used to optimize common operations like token metadata retrieval and pool reserve queries. Custom cache providers can integrate with any storage system that supports basic get/set operations.
+
 ## Error Handling
 
 The SDK uses a Result type for better error handling:
