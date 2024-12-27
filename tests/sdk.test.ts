@@ -35,7 +35,7 @@ describe("Dexterity SDK", () => {
   it("should get multi-hop quote", async () => {
     const quote = await Dexterity.getQuote(
       pools[0].liquidity[0].contractId,
-      pools[1].liquidity[1].contractId,
+      pools[2].liquidity[1].contractId,
       10000000
     );
 
@@ -63,7 +63,7 @@ describe("Dexterity SDK", () => {
   it("should build multi-hop swap transaction", async () => {
     const multiHopSwapConfig = await Dexterity.buildSwap(
       pools[0].liquidity[0].contractId,
-      pools[1].liquidity[1].contractId,
+      pools[2].liquidity[1].contractId,
       10000
     );
 
