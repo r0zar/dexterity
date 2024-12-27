@@ -62,7 +62,7 @@ describe("Contract Generator", () => {
 
   describe("Contract Generation", () => {
     it("should generate STX pool contract", () => {
-      const contract = Dexterity.generateVaultContract(STX_USDA_POOL);
+      const contract = Dexterity.codegen.generateContractCode(STX_USDA_POOL);
 
       // Check core contract components
       expect(contract).includes(";; Title: STX-USDA Pool");
@@ -81,7 +81,7 @@ describe("Contract Generator", () => {
     });
 
     it("should generate token-token pool contract", () => {
-      const contract = Dexterity.generateVaultContract(BTC_USDA_POOL);
+      const contract = Dexterity.codegen.generateContractCode(BTC_USDA_POOL);
 
       // Check core contract components
       expect(contract).includes(";; Title: BTC-USDA Pool");
@@ -101,7 +101,7 @@ describe("Contract Generator", () => {
     });
 
     it("should handle initial liquidity ratios", () => {
-      const contract = Dexterity.generateVaultContract(STX_USDA_POOL);
+      const contract = Dexterity.codegen.generateContractCode(STX_USDA_POOL);
 
       // Check base liquidity
       const baseAmount = Math.min(
@@ -120,13 +120,13 @@ describe("Contract Generator", () => {
     });
 
     it("should generate valid token URIs", () => {
-      const contract = Dexterity.generateVaultContract(STX_USDA_POOL);
+      const contract = Dexterity.codegen.generateContractCode(STX_USDA_POOL);
       const uri = `https://charisma.rocks/api/v0/metadata/${STX_USDA_POOL.contractId}`;
       expect(contract).includes(`(some u"${uri}")`);
     });
 
     it("should include all required trait implementations", () => {
-      const contract = Dexterity.generateVaultContract(STX_USDA_POOL);
+      const contract = Dexterity.codegen.generateContractCode(STX_USDA_POOL);
 
       // Check SIP-010 trait
       expect(contract).includes(
@@ -147,7 +147,7 @@ describe("Contract Generator", () => {
     });
 
     it("should properly format operation codes", () => {
-      const contract = Dexterity.generateVaultContract(STX_USDA_POOL);
+      const contract = Dexterity.codegen.generateContractCode(STX_USDA_POOL);
 
       // Check operation constants
       expect(contract).includes("OP_SWAP_A_TO_B 0x00");

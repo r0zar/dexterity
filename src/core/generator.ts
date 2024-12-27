@@ -43,7 +43,7 @@ export class ContractGenerator {
     }
   }
 
-  private static generateContractCode(config: LPToken): string {
+  static generateContractCode(config: LPToken): string {
     const contractId = config.contractId;
     const tokenAContract = config.liquidity[0].contractId;
     const tokenBContract = config.liquidity[1].contractId;
