@@ -18,14 +18,15 @@ const SKULL_TOKEN = 'SP3BRXZ9Y7P5YP28PSR8YJT39RT51ZZBSECTCADGR.skullcoin-stxcity
 describe("Dexterity SDK", () => {
   let pools: LPToken[] = [];
 
-  // beforeAll(async () => {
-  //   await Dexterity.deriveSigner(0);
-  //   await Dexterity.discoverPools();
-  //   for (const vault of Dexterity.router.vaults.values()) {
-  //     pools.push(vault.getPool());
-  //   }
-  //   console.log({ pools });
-  // }, 200000);
+  beforeAll(async () => {
+    await Dexterity.deriveSigner(0);
+    await Dexterity.discoverPools();
+    for (const vault of Dexterity.router.vaults.values()) {
+      pools.push(vault.getPool());
+    }
+    console.log({ pools });
+    expect(pools.length).toBeGreaterThan(0);
+  }, 200000);
 
   // it("should get direct swap quote", async () => {
   //   const quote = await Dexterity.getQuote(
