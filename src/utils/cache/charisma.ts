@@ -17,6 +17,7 @@ export class CharismaCache implements CacheProvider {
         );
         if (response.ok) {
           const data = await response.json();
+          // console.log(data)
           return {
             contractId: data.contractId,
             identifier: data.identifier,

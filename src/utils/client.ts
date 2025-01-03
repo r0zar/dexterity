@@ -24,19 +24,31 @@ export class StacksClient {
   static async callReadOnly(
     contractId: string,
     method: string,
-    args: any[] = []
+    args: any[] = [],
+    retries: number = 3
   ): Promise<any> {
     const [address, name] = contractId.split(".");
-    const response = await this.client.POST(
-      `/v2/contracts/call-read/${address}/${name}/${method}` as any,
-      { body: { sender: address, arguments: args } }
-    );
+    let attempt = 0;
+    while (attempt < retries) {
+      try {
+        const response = await this.client.POST(
+          `/v2/contracts/call-read/${address}/${name}/${method}` as any,
+          { body: { sender: address, arguments: args } }
+        );
 
-    if (!response?.data?.result) {
-      throw new Error(`No result from contract call ${method}`);
+        if (!response?.data?.result) {
+          throw new Error(`No result from contract call ${method}`);
+        }
+
+        return cvToValue(hexToCV(response.data.result)).value;
+      } catch (error) {
+        attempt++;
+        if (attempt >= retries) {
+          throw new Error(`Failed to call read-only method ${method} after ${retries} attempts: ${error}`);
+        }
+        await new Promise(resolve => setTimeout(resolve, attempt * 1000)); // Incrementally longer timeout
+      }
     }
-
-    return cvToValue(hexToCV(response.data.result)).value;
   }
 
   static async proxyReadOnly(
