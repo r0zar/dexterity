@@ -48,7 +48,7 @@ export class StacksClient {
             `\nFailed to call read-only method ${method} after ${retries} attempts: ${error}`
           );
         }
-        await new Promise((resolve) => setTimeout(resolve, attempt * 10000)); // Incrementally longer timeout
+        await new Promise((resolve) => setTimeout(resolve, attempt * 3000)); // Incrementally longer timeout
       }
     }
   }
