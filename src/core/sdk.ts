@@ -45,14 +45,18 @@ export class Dexterity {
   static getConfig(): SDKConfig {
     return this.config;
   }
-
   /**
    * Discovery Methods
    */
-  static async discoverPools(limit?: number) {
+  static async discoverPools(limit?: number, blacklist: string[] = []) {
     const contracts = await this.client.searchContractsByTrait(
       POOL_TRAIT,
       limit
+    );
+
+    // Filter out blacklisted contracts
+    const filteredContracts = contracts.filter(
+      (contract) => !blacklist.includes(contract.contract_id)
     );
 
     // Process contracts in parallel batches
@@ -61,8 +65,8 @@ export class Dexterity {
       this.config.discovery?.parallelRequests ??
       DEFAULT_DISCOVERY_CONFIG.parallelRequests;
 
-    for (let i = 0; i < contracts.length; i += parallelRequests) {
-      const batch = contracts.slice(i, i + parallelRequests);
+    for (let i = 0; i < filteredContracts.length; i += parallelRequests) {
+      const batch = filteredContracts.slice(i, i + parallelRequests);
       const poolPromises = batch.map((contract) =>
         this.processPoolContract(contract.contract_id)
       );
