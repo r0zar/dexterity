@@ -25,8 +25,11 @@ describe("Dexterity SDK", () => {
       pools.push(vault.getPool());
     }
     console.log({ pools });
-    expect(pools.length).toBeGreaterThan(0);
   }, 200000);
+
+  it("should discover pools", async () => {
+    expect(pools.length).toBeGreaterThan(0);
+  });
 
   // it("should get direct swap quote", async () => {
   //   const quote = await Dexterity.getQuote(
