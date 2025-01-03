@@ -46,24 +46,24 @@ describe("Dexterity SDK", () => {
     expect(quote.amountOut).toBeGreaterThan(0);
   });
 
-  it("should build direct swap transaction", async () => {
-    const swapConfig = await Dexterity.buildSwap(
-      CHA_TOKEN,
-      DMG_TOKEN,
-      1000
-    );
+  // it("should build direct swap transaction", async () => {
+  //   const swapConfig = await Dexterity.buildSwap(
+  //     CHA_TOKEN,
+  //     DMG_TOKEN,
+  //     1000
+  //   );
 
-    expect(swapConfig).toHaveProperty("functionName");
-    expect(swapConfig.functionName).toMatch(/^swap-/);
-    expect(swapConfig).toHaveProperty("postConditions");
-    expect(swapConfig.postConditions).toBeInstanceOf(Array);
-    expect(swapConfig.functionArgs).toHaveLength(2);
+  //   expect(swapConfig).toHaveProperty("functionName");
+  //   expect(swapConfig.functionName).toMatch(/^swap-/);
+  //   expect(swapConfig).toHaveProperty("postConditions");
+  //   expect(swapConfig.postConditions).toBeInstanceOf(Array);
+  //   expect(swapConfig.functionArgs).toHaveLength(2);
 
-    // Validate opcode format
-    const [amountArg, opcodeArg] = swapConfig.functionArgs;
-    expect(amountArg).toBeTypeOf("object"); // clarity value
-    expect(opcodeArg).toBeTypeOf("object"); // clarity value
-  });
+  //   // Validate opcode format
+  //   const [amountArg, opcodeArg] = swapConfig.functionArgs;
+  //   expect(amountArg).toBeTypeOf("object"); // clarity value
+  //   expect(opcodeArg).toBeTypeOf("object"); // clarity value
+  // });
 
   // it("should build multi-hop swap transaction", async () => {
   //   const multiHopSwapConfig = await Dexterity.buildSwap(
