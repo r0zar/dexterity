@@ -95,6 +95,11 @@ export class StacksClient {
     return abi.fungible_tokens[0].name;
   }
 
+  static async getTotalSupply(contractId: string): Promise<number> {
+    const value = await this.callReadOnly(contractId, "get-total-supply");
+    return Number(value);
+  }
+
   static async getTokenDecimals(contractId: string): Promise<number> {
     const value = await this.callReadOnly(contractId, "get-decimals");
     return Number(value);

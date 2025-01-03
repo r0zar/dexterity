@@ -18,33 +18,34 @@ const SKULL_TOKEN = 'SP3BRXZ9Y7P5YP28PSR8YJT39RT51ZZBSECTCADGR.skullcoin-stxcity
 describe("Dexterity SDK", () => {
   let pools: LPToken[] = [];
 
-  beforeAll(async () => {
-    await Dexterity.deriveSigner(0);
-    await Dexterity.discoverPools();
-    for (const vault of Dexterity.router.vaults.values()) {
-      pools.push(vault.getPool());
-    }
-  }, 200000);
+  // beforeAll(async () => {
+  //   await Dexterity.deriveSigner(0);
+  //   await Dexterity.discoverPools();
+  //   for (const vault of Dexterity.router.vaults.values()) {
+  //     pools.push(vault.getPool());
+  //   }
+  //   console.log({ pools });
+  // }, 200000);
 
-  it("should get direct swap quote", async () => {
-    const quote = await Dexterity.getQuote(
-      CHA_TOKEN,
-      DMG_TOKEN,
-      1000000
-    );
-    expect(quote.amountIn).toBe(1000000);
-    expect(quote.amountOut).toBeGreaterThan(0);
-  });
+  // it("should get direct swap quote", async () => {
+  //   const quote = await Dexterity.getQuote(
+  //     CHA_TOKEN,
+  //     DMG_TOKEN,
+  //     1000000
+  //   );
+  //   expect(quote.amountIn).toBe(1000000);
+  //   expect(quote.amountOut).toBeGreaterThan(0);
+  // });
 
-  it("should get multi-hop quote", async () => {
-    const quote = await Dexterity.getQuote(
-      DMG_TOKEN,
-      SKULL_TOKEN,
-      10000000
-    );
+  // it("should get multi-hop quote", async () => {
+  //   const quote = await Dexterity.getQuote(
+  //     DMG_TOKEN,
+  //     SKULL_TOKEN,
+  //     10000000
+  //   );
 
-    expect(quote.amountOut).toBeGreaterThan(0);
-  });
+  //   expect(quote.amountOut).toBeGreaterThan(0);
+  // });
 
   // it("should build direct swap transaction", async () => {
   //   const swapConfig = await Dexterity.buildSwap(

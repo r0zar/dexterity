@@ -29,7 +29,7 @@ import { MemoryCache } from "../utils/cache/memory";
 
 export class Dexterity {
   static config = DEFAULT_SDK_CONFIG;
-  static cache = new CharismaCache()
+  static cache: CacheProvider = new CharismaCache()
   static codegen = ContractGenerator;
   static client = StacksClient;
   static router = Router;
@@ -89,6 +89,7 @@ export class Dexterity {
           )
         );
       }
+      const supply = await this.client.getTotalSupply(contractId);
       const [token0, token1] = await Promise.all([
         this.getTokenInfo(metadata.properties.tokenAContract),
         this.getTokenInfo(metadata.properties.tokenBContract),
@@ -114,7 +115,7 @@ export class Dexterity {
           { ...token0, reserves: reserve0 },
           { ...token1, reserves: reserve1 },
         ],
-        supply: 0,
+        supply,
       };
       return Result.ok(pool);
     } catch (error) {
