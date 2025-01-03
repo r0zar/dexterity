@@ -29,7 +29,7 @@ import { MemoryCache } from "../utils/cache/memory";
 
 export class Dexterity {
   static config = DEFAULT_SDK_CONFIG;
-  static cache = MemoryCache.getInstance();
+  static cache = new CharismaCache()
   static codegen = ContractGenerator;
   static client = StacksClient;
   static router = Router;
@@ -50,7 +50,7 @@ export class Dexterity {
    * Discovery Methods
    */
   static async discoverPools(limit?: number) {
-    const contracts = await StacksClient.searchContractsByTrait(
+    const contracts = await this.client.searchContractsByTrait(
       POOL_TRAIT,
       limit
     );
@@ -134,7 +134,7 @@ export class Dexterity {
   static async getTokenInfo(contractId: string): Promise<Token> {
     const cacheKey = `token:${contractId}`;
 
-    return Dexterity.cache.getOrSet(cacheKey, async () => {
+    return this.cache.getOrSet(cacheKey, async () => {
       try {
         if (contractId === ".stx") {
           return {
@@ -150,22 +150,24 @@ export class Dexterity {
 
         const [identifier, symbol, decimals, name, metadata] =
           await Promise.all([
-            StacksClient.getTokenIdentifier(contractId),
-            StacksClient.getTokenSymbol(contractId),
-            StacksClient.getTokenDecimals(contractId),
-            StacksClient.getTokenName(contractId),
-            StacksClient.getTokenMetadata(contractId).catch(() => null),
+            this.client.getTokenIdentifier(contractId),
+            this.client.getTokenSymbol(contractId),
+            this.client.getTokenDecimals(contractId),
+            this.client.getTokenName(contractId),
+            this.client.getTokenMetadata(contractId).catch(() => ({ description: "", image: "" })),
           ]);
 
-        return {
-          contractId,
+        const token: Token = {
+          contractId: contractId as ContractId,
           identifier,
           name,
           symbol,
           decimals,
           description: metadata?.description || "",
           image: metadata?.image || "",
-        } as Token;
+        }
+
+        return token;
       } catch (error) {
         console.error(`Error fetching token info for ${contractId}:`, error);
         throw error;
@@ -185,11 +187,11 @@ export class Dexterity {
 
       return Promise.all([
         token0Contract === ".stx"
-          ? StacksClient.getStxBalance(contractAddress)
-          : StacksClient.getTokenBalance(token0Contract, poolContract),
+          ? this.client.getStxBalance(contractAddress)
+          : this.client.getTokenBalance(token0Contract, poolContract),
         token1Contract === ".stx"
-          ? StacksClient.getStxBalance(contractAddress)
-          : StacksClient.getTokenBalance(token1Contract, poolContract),
+          ? this.client.getStxBalance(contractAddress)
+          : this.client.getTokenBalance(token1Contract, poolContract),
       ]);
     });
   }
@@ -322,14 +324,14 @@ export class Dexterity {
       // return address and key for selected index
       const stxAddress = getStxAddress(
         wallet.accounts[index],
-        Dexterity.config.network
+        this.config.network
       );
 
-      Dexterity.config.mode = "server";
-      Dexterity.config.privateKey = wallet.accounts[index].stxPrivateKey;
-      Dexterity.config.stxAddress = stxAddress;
+      this.config.mode = "server";
+      this.config.privateKey = wallet.accounts[index].stxPrivateKey;
+      this.config.stxAddress = stxAddress;
     } else {
-      Dexterity.config.mode = "client";
+      this.config.mode = "client";
     }
   }
 }

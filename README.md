@@ -283,3 +283,105 @@ debugUtils.setDebugMode({
 // Get debug stats
 const stats = debugUtils.getStats();
 ```
+
+## CLI Usage
+
+The SDK can also be installed globally to use its CLI features:
+
+```bash
+npm install -g dexterity-sdk
+```
+
+Once installed, you can use the `dexterity` command to interact with the protocol:
+
+### Basic Commands
+
+#### Get a Quote
+
+```bash
+# Get a quote for swapping tokens
+dexterity quote <tokenIn> <tokenOut> <amount>
+
+# Example: Swap 1M microSTX for USDA
+dexterity quote .stx SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.usda 1000000
+```
+
+#### List Available Pools
+
+```bash
+# List all liquidity pools
+dexterity pools
+
+# Use on testnet
+dexterity -n testnet pools
+```
+
+### Inspection Commands
+
+The `inspect` command provides detailed information about various protocol components:
+
+```bash
+# Inspect a specific pool
+dexterity inspect -p SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.stx-usda-v1
+
+# Inspect a token and its available pools
+dexterity inspect -t SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.usda
+
+# Analyze routing between two tokens
+dexterity inspect -r .stx SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.usda
+
+# Show routing graph statistics
+dexterity inspect -g
+
+# With debug information
+dexterity -d inspect -g
+```
+
+### Configuration Management
+
+The CLI maintains a configuration file at `~/.dexterity/config.json`. You can manage it with the following commands:
+
+```bash
+# View current configuration
+dexterity config ls
+
+# Set a configuration value
+dexterity config set maxHops 3
+dexterity config set defaultSlippage 0.5
+
+# Get a specific configuration value
+dexterity config get maxHops
+
+# Reset configuration to defaults
+dexterity config reset
+```
+
+### Global Options
+
+```bash
+# Network selection
+-n, --network <network>     Specify network (mainnet/testnet)
+
+# Debug mode
+-d, --debug                 Enable debug output
+
+# Help
+-h, --help                  Display help
+-V, --version              Display version
+```
+
+### Environment Variables
+
+The CLI respects the following environment variables:
+
+```bash
+# API key for higher rate limits
+STACKS_API_KEY="your-api-key"
+
+# Alternative networks
+STACKS_API_URL="https://your-api-url"
+```
+
+You can also create a `.env` file in your working directory with these variables.
+
+### Configuration File

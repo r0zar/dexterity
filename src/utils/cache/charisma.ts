@@ -7,7 +7,7 @@ export class CharismaCache implements CacheProvider {
     this.baseUrl = baseUrl;
   }
 
-  async getOrSet<T>(key: string, fetchFn: () => Promise<T>): Promise<T> {
+  async getOrSet<T>(key: string, fetchFn: () => Promise<T>, ttlMs?: number): Promise<T> {
     // If the key starts with 'token:', attempt to fetch from HTTP endpoint
     if (key.startsWith("token:")) {
       const contractId = key.replace("token:", "");
@@ -54,7 +54,7 @@ export class CharismaCache implements CacheProvider {
   }
 
   // These methods are no-ops since we're using an HTTP endpoint as our source of truth
-  set<T>(_key: string, _value: T): void {}
-  invalidate(_key: string): void {}
-  clear(): void {}
+  set<T>(_key: string, _value: T): void { }
+  invalidate(_key: string): void { }
+  clear(): void { }
 }
