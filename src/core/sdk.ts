@@ -29,7 +29,7 @@ import { MemoryCache } from "../utils/cache/memory";
 
 export class Dexterity {
   static config = DEFAULT_SDK_CONFIG;
-  static cache: CacheProvider = new CharismaCache()
+  static cache: CacheProvider = new CharismaCache();
   static codegen = ContractGenerator;
   static client = StacksClient;
   static router = Router;
@@ -68,7 +68,7 @@ export class Dexterity {
       );
 
       const results = await Promise.all(poolPromises);
-      pools.push(...results.filter((r) => r.isOk()).map((r) => r.unwrap()));
+      pools.push(...(results.filter((pool) => pool !== null) as LPToken[]));
     }
 
     const vaults = pools.map((pool) => new Vault(pool));
@@ -76,18 +76,13 @@ export class Dexterity {
     return pools;
   }
 
-  private static async processPoolContract(
+  static async processPoolContract(
     contractId: ContractId
-  ): Promise<Result<LPToken, Error>> {
+  ): Promise<LPToken | null> {
     try {
       const metadata = await this.client.getTokenMetadata(contractId);
       if (!metadata.properties) {
-        return Result.err(
-          ErrorUtils.createError(
-            ERROR_CODES.INVALID_CONTRACT,
-            `No properties found in metadata for ${contractId}`
-          )
-        );
+        throw new Error("Invalid pool metadata");
       }
       const supply = await this.client.getTotalSupply(contractId);
       const [token0, token1] = await Promise.all([
@@ -117,15 +112,10 @@ export class Dexterity {
         ],
         supply,
       };
-      return Result.ok(pool);
+      return pool;
     } catch (error) {
-      return Result.err(
-        ErrorUtils.createError(
-          ERROR_CODES.DISCOVERY_FAILED,
-          `Failed to process contract ${contractId}`,
-          error
-        )
-      );
+      console.error(`\nError processing pool contract: ${contractId}`);
+      return null;
     }
   }
 
@@ -155,7 +145,9 @@ export class Dexterity {
             this.client.getTokenSymbol(contractId),
             this.client.getTokenDecimals(contractId),
             this.client.getTokenName(contractId),
-            this.client.getTokenMetadata(contractId).catch(() => ({ description: "", image: "" })),
+            this.client
+              .getTokenMetadata(contractId)
+              .catch(() => ({ description: "", image: "" })),
           ]);
 
         const token: Token = {
@@ -166,7 +158,7 @@ export class Dexterity {
           decimals,
           description: metadata?.description || "",
           image: metadata?.image || "",
-        }
+        };
 
         return token;
       } catch (error) {

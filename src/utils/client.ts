@@ -37,16 +37,18 @@ export class StacksClient {
         );
 
         if (!response?.data?.result) {
-          throw new Error(`No result from contract call ${method}`);
+          throw new Error(`\nNo result from contract call ${method}`);
         }
 
         return cvToValue(hexToCV(response.data.result)).value;
       } catch (error) {
         attempt++;
         if (attempt >= retries) {
-          throw new Error(`Failed to call read-only method ${method} after ${retries} attempts: ${error}`);
+          throw new Error(
+            `\nFailed to call read-only method ${method} after ${retries} attempts: ${error}`
+          );
         }
-        await new Promise(resolve => setTimeout(resolve, attempt * 1000)); // Incrementally longer timeout
+        await new Promise((resolve) => setTimeout(resolve, attempt * 10000)); // Incrementally longer timeout
       }
     }
   }
@@ -75,12 +77,12 @@ export class StacksClient {
     const { value } = await this.callReadOnly(contractId, "get-token-uri");
 
     if (!value) {
-      throw new Error(`No token URI found for ${contractId}`);
+      throw new Error(`\nNo token URI found for ${contractId}`);
     }
 
     const response = await fetch(value);
     if (!response.ok) {
-      throw new Error(`Failed to fetch metadata from ${value}`);
+      throw new Error(`\nFailed to fetch metadata from ${value}`);
     }
 
     return response.json();
