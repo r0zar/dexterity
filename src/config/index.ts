@@ -67,10 +67,6 @@ function validateConfig(config: SDKConfig): void {
     throw new Error("Network configuration is required");
   }
 
-  if (!config.apiKeys?.length && !config.apiKey) {
-    throw new Error("At least one API key is required");
-  }
-
   if (
     config.maxHops !== undefined &&
     (config.maxHops < 1 || config.maxHops > 5)
