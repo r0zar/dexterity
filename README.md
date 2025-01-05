@@ -1,385 +1,264 @@
 # Dexterity SDK
 
-A TypeScript SDK for interacting with the Dexterity AMM protocol on Stacks. Dexterity uses an isolated vault system where each liquidity pool exists as an independent smart contract for enhanced security.
+![Dexterity Banner](github-banner.png)
 
-## Features
+A TypeScript SDK and CLI for interacting with the Dexterity AMM protocol on Stacks. Dexterity uses an isolated vault system where each liquidity pool exists as an independent smart contract for enhanced security.
 
-- 🔄 **Automated Market Making**
+[![npm version](https://badge.fury.io/js/dexterity-sdk.svg)](https://badge.fury.io/js/dexterity-sdk)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-  - Direct token swaps
-  - Multi-hop routing
-  - Automated price discovery
-  - Configurable fees
-
-- 💧 **Liquidity Management**
-
-  - Add/remove liquidity
-  - Track reserves
-  - Fair LP token distribution
-
-- 🛡️ **Security First**
-
-  - Isolated vault contracts
-  - Post-condition checks
-  - Slippage protection
-  - Transaction preview
-
-- 🔍 **Discovery & Analysis**
-  - Automatic vault discovery
-  - Route optimization
-  - Price quotes
-  - Debug utilities
-
-## Installation
-
+## Quick Start
 ```bash
 npm install dexterity-sdk
 ```
 
-## Quick Start
-
 ```typescript
 import { Dexterity } from "dexterity-sdk";
-import { STACKS_MAINNET } from "@stacks/network";
 
 // Initialize SDK with configuration
-Dexterity.config = {
-  mode: "server", // or "client" for browser environments
-};
+const client = new Dexterity();
 
-// Discover available pools
-await Dexterity.discoverPools();
-
-// Get a quote for a swap
+// Get a quote for swapping tokens
 const quote = await Dexterity.getQuote(
-  "SP123.token-a", // token in
-  "SP456.token-b", // token out
-  1000000 // amount (in smallest units)
+  "SP123.token-a",  // token in
+  "SP456.token-b",  // token out
+  1000000          // amount (in smallest units)
 );
 
-// Execute a swap (client mode)
-await Dexterity.executeSwap("SP123.token-a", "SP456.token-b", 1000000);
+// Execute the swap (client mode)
+await Dexterity.executeSwap(
+  "SP123.token-a", 
+  "SP456.token-b", 
+  1000000
+);
 ```
+
+## Features
+
+- 🔄 **Advanced Trading**
+  - Direct token swaps
+  - Multi-hop routing with automatic path finding
+  - Price quotes and analysis
+  - Automated price discovery
+  - Configurable fees and slippage protection
+
+- 💧 **Liquidity Management**
+  - Add/remove liquidity
+  - Track reserves across pools
+  - Fair LP token distribution
+  - Balanced and imbalanced deposits
+
+- 🛡️ **Enterprise Security**
+  - Isolated vault contracts
+  - Post-condition checks
+  - Transaction preview
+  - API key rotation
+  - Rate limiting protection
+
+- 🔍 **Discovery & Analysis**
+  - Automatic vault discovery
+  - Route optimization
+  - Debug utilities
+  - Testing utilities
 
 ## Core Concepts
 
-### Environment Variables
+### Environment Setup
+
+Create a `.env` file in your project root:
 
 ```bash
 # .env
-STACKS_API_KEY="1975...f12c"
-SEED_PHRASE="lunar fire amazing world ... big alcohol seven journey"
+STACKS_API_KEY="your-api-key"  # Required for higher rate limits
+SEED_PHRASE="..."              # Optional: Only for server environments
 ```
-
-### Initialization
-
-If providing seed phrase as an environment variable in a secure environment:
-
-```typescript
-await Dexterity.deriveSigner();
-```
-
-This will setup the sender key to sign and broadcast transactions.
 
 ### Configuration
 
-The SDK can be configured for both client-side (browser) and server-side usage:
+The SDK supports both client-side (browser) and server-side usage:
 
 ```typescript
-// Client-side configuration
-Dexterity.config = {
-  mode: "client", // or "server" for non-browser environments
-};
+// Client-side (browser)
+Dexterity.setConfig({
+  mode: "client",
+  network: STACKS_MAINNET,
+});
 
-// Server-side configuration
-Dexterity.config = {
+// Server-side
+Dexterity.setConfig({
   mode: "server",
   network: STACKS_MAINNET,
-  apiKey: "HIRO_API_KEY",
-};
+  apiKey: process.env.STACKS_API_KEY,
+});
+
+// Using environment variables
+await Dexterity.deriveSigner();
 ```
 
-Any configuration setting can be modified directly:
+Any configuration can be modified:
 
 ```typescript
-Dexterity.config.mode = "client";
+// Update individual settings
+Dexterity.setConfig({ maxHops: 3 });
+Dexterity.setConfig({ defaultSlippage: 0.5 });
 
-Dexterity.config.network = STACKS_TESTNET;
-
-Dexterity.config.cache = CustomCache();
+// Get current config
+const config = Dexterity.getConfig();
 ```
 
-### Working with Vaults
+### Working with Quotes
 
-Individual vaults represent liquidity pools and can be interacted with directly:
-
-```typescript
-// Get a specific vault
-const vault = Dexterity.getVault("SP123.pool-contract");
-
-// Get a quote from the vault
-const quote = await vault.quote(
-  1000000, // amount
-  new Opcode().setOperation(OPERATION_TYPES.SWAP_A_TO_B)
-);
-
-// Build a transaction
-const tx = await vault.buildTransaction(opcode, amount);
-```
-
-### Opcodes
-
-Operations are configured using a flexible opcode system:
+Get quotes for potential trades:
 
 ```typescript
-import { Opcode, OPERATION_TYPES } from "dexterity-sdk";
-
-// Create a swap A to B opcode
-const opcode = new Opcode()
-  .setOperation(OPERATION_TYPES.SWAP_A_TO_B)
-  .setSwapType(SWAP_TYPES.EXACT_INPUT)
-  .setFeeType(FEE_TYPES.REDUCE_INPUT);
-
-// Preset operations available
-const swapOpcode = Opcode.swapExactAForB();
-const liquidityOpcode = Opcode.addBalancedLiquidity();
-```
-
-### Multi-Hop Routing
-
-The SDK automatically finds optimal trading paths:
-
-```typescript
-// Get best route with quote
+// Simple quote
 const quote = await Dexterity.getQuote(
   tokenInContract,
   tokenOutContract,
   amount
 );
 
-// Execute optimal route
-await Dexterity.executeSwap(tokenInContract, tokenOutContract, amount);
-```
-
-## Contract Generation
-
-The SDK includes utilities for generating new vault contracts:
-
-```typescript
-// Configure pool parameters
-const tokenA = await Dexterity.getTokenInfo("SP123.token-a");
-const tokenB = await Dexterity.getTokenInfo("SP123.token-b");
-const poolConfig: LPToken = {
-  contractId: "SP123.pool-token",
-  name: "Token A-B Pool",
-  symbol: "POOL-A-B",
-  decimals: 6,
-  fee: 3000, // 0.3%
-  liquidity: [
-    {
-      ...tokenA, // swappable token A
-      reserves: 1000000000, // initial liquidity A
-    },
-    {
-      ...tokenB, // swappable token B
-      reserves: 1000000000, // initial liquidity B
-    },
-  ],
-};
-
-// Generate contract
-const contract = Dexterity.generateVaultContract(poolConfig);
-
-// Deploy contract
-const result = await ContractGenerator.deployContract(poolConfig, {
-  senderKey: "your-private-key",
-});
-```
-
-## Cache Configuration
-
-The SDK includes a configurable caching layer that supports Charisma, in-memory, and custom cache providers:
-
-```typescript
-// Default Charisma cache
-// No configuration needed - this is the default
-
-// Using a custom cache provider
-const customCache = new Dexterity.cacheProviders.CustomCache({
-  get: async (key: string) => {
-    // Your custom get logic
-    return await yourCache.get(key);
-  },
-  set: async (key: string, value: any, ttlMs?: number) => {
-    // Your custom set logic
-    await yourCache.set(key, value, ttlMs);
-  },
+console.log({
+  amountIn: quote.amountIn,
+  amountOut: quote.amountOut,
+  expectedPrice: quote.expectedPrice,
+  minimumReceived: quote.minimumReceived,
+  fee: quote.fee
 });
 
-// Set the cache provider
-Dexterity.cache = customCache;
+// Execute the quoted trade
+await Dexterity.executeSwap(
+  tokenInContract, 
+  tokenOutContract, 
+  amount,
+  { fee: 10000 } // optional parameters
+);
+```
 
+### Pool Operations
+
+Interact with individual liquidity pools:
+
+```typescript
+// Get a specific pool
+const vault = Dexterity.getVault("SP123.pool-abc");
+
+// Get pool information
+const pool = vault.getPool();
+const [tokenA, tokenB] = vault.getTokens();
+const [reserveA, reserveB] = vault.getReserves();
+
+// Get a quote from the pool
+const quote = await vault.quote(
+  1000000,
+  new Opcode().setOperation(OPERATION_TYPES.SWAP_A_TO_B)
+);
+```
+
+### Cache Configuration
+
+The SDK includes configurable caching:
+
+```typescript
 // Example with Vercel KV
 import { kv } from "@vercel/kv";
 
-const kvCache = new Dexterity.cacheProviders.CustomCache({
+const kvCache = new CustomCache({
   get: async (key) => await kv.get(key),
   set: async (key, value, ttlMs) => {
     const ttlSeconds = ttlMs ? Math.floor(ttlMs / 1000) : undefined;
-    await kv.set(key, value, ttlSeconds ? { ex: ttlSeconds } : undefined);
+    await kv.set(key, value, { ex: ttlSeconds });
   },
 });
 
 Dexterity.cache = kvCache;
 ```
 
-The cache is used to optimize common operations like token metadata retrieval and pool reserve queries. Custom cache providers can integrate with any storage system that supports basic get/set operations.
-
-## Error Handling
-
-The SDK uses a Error type for better error handling:
-
-```typescript
-// During Error scenario
-const quote = await vault.quote(amount, opcode);
-if (quote instanceof Error) {
-  console.error(`Quote failed: ${quote.message}`);
-  throw quote;
-}
-
-// Error codes
-export const ERROR_CODES = {
-  UNAUTHORIZED: 403,
-  INVALID_OPERATION: 400,
-  INSUFFICIENT_LIQUIDITY: 1001,
-  EXCESSIVE_SLIPPAGE: 1003,
-  QUOTE_FAILED: 1005,
-  TRANSACTION_FAILED: 1006,
-  // ... more error codes
-};
-```
-
-## Debugging
-
-The SDK includes comprehensive debugging utilities:
-
-```typescript
-import { debugUtils } from "dexterity-sdk";
-
-// Enable debug mode
-debugUtils.setDebugMode({
-  enabled: true,
-  logPathfinding: true,
-  logQuotes: true,
-  logEvaluation: true,
-  verbosity: 2,
-  callback: (info) => {
-    console.log(`Debug [${info.phase}]:`, info.details);
-  },
-});
-
-// Get debug stats
-const stats = debugUtils.getStats();
-```
-
 ## CLI Usage
 
-The SDK can also be installed globally to use its CLI features:
+The SDK includes a powerful CLI for interacting with the protocol:
 
 ```bash
+# Install globally
 npm install -g dexterity-sdk
-```
 
-Once installed, you can use the `dexterity` command to interact with the protocol:
-
-### Basic Commands
-
-#### Get a Quote
-
-```bash
-# Get a quote for swapping tokens
-dexterity quote <tokenIn> <tokenOut> <amount>
-
-# Example: Swap 1M microSTX for USDA
+# Get a quote
 dexterity quote .stx SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.usda 1000000
-```
 
-#### List Available Pools
-
-```bash
-# List all liquidity pools
+# List all pools
 dexterity pools
 
-# Use on testnet
-dexterity -n testnet pools
+# Show debug information
+dexterity -d inspect -g
+```
+
+### CLI Configuration
+
+Manage CLI settings:
+
+```bash
+# View config
+dexterity config ls
+
+# Set values
+dexterity config set maxHops 3
+dexterity config set defaultSlippage 0.5
+
+# Reset to defaults
+dexterity config reset
 ```
 
 ### Inspection Commands
 
-The `inspect` command provides detailed information about various protocol components:
+Analyze protocol components:
 
 ```bash
-# Inspect a specific pool
+# Inspect a pool
 dexterity inspect -p SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.stx-usda-v1
 
-# Inspect a token and its available pools
-dexterity inspect -t SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.usda
-
-# Analyze routing between two tokens
+# Analyze token routes
 dexterity inspect -r .stx SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.usda
 
-# Show routing graph statistics
+# Show routing statistics
 dexterity inspect -g
-
-# With debug information
-dexterity -d inspect -g
 ```
 
-### Configuration Management
+## Development
 
-The CLI maintains a configuration file at `~/.dexterity/config.json`. You can manage it with the following commands:
+### Testing
 
 ```bash
-# View current configuration
-dexterity config ls
+# Run tests
+npm test
 
-# Set a configuration value
-dexterity config set maxHops 3
-dexterity config set defaultSlippage 0.5
+# With coverage
+npm run test:coverage
 
-# Get a specific configuration value
-dexterity config get maxHops
-
-# Reset configuration to defaults
-dexterity config reset
+# Watch mode
+npm run test:watch
 ```
 
-### Global Options
+### Building
 
 ```bash
-# Network selection
--n, --network <network>     Specify network (mainnet/testnet)
+# Clean and build
+npm run clean && npm run build
 
-# Debug mode
--d, --debug                 Enable debug output
+# Development
+npm run dev
 
-# Help
--h, --help                  Display help
--V, --version              Display version
+# Watch mode
+npm run dev:watch
 ```
 
-### Environment Variables
+### Contributing
 
-The CLI respects the following environment variables:
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -am 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-```bash
-# API key for higher rate limits
-STACKS_API_KEY="your-api-key"
+## License
 
-# Alternative networks
-STACKS_API_URL="https://your-api-url"
-```
-
-You can also create a `.env` file in your working directory with these variables.
-
-### Configuration File
+This project is licensed under the MIT License - see the LICENSE file for details.
