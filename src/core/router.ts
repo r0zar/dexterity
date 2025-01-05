@@ -2,7 +2,7 @@
 
 import { Vault } from "./vault";
 import { Opcode } from "./opcode";
-import { Result, ErrorUtils } from "../utils";
+import { ErrorUtils } from "../utils";
 import { ERROR_CODES } from "../constants";
 import { Dexterity } from "./sdk";
 import { debugUtils } from "../utils/router.debug";
@@ -179,27 +179,23 @@ export class Router {
     tokenIn: ContractId,
     tokenOut: ContractId,
     amount: number
-  ): Promise<Result<Route, Error>> {
+  ): Promise<Route | Error> {
     debugUtils.logPathfindingStart(tokenIn, tokenOut, amount, this.maxHops);
     const paths = this.findAllPaths(tokenIn, tokenOut, this.maxHops);
 
     if (paths.length === 0) {
       debugUtils.logNoPathsFound();
-      return Result.err(
-        ErrorUtils.createError(
+      return ErrorUtils.createError(
           ERROR_CODES.INVALID_PATH,
           `No path found from ${tokenIn} to ${tokenOut}`
         )
-      );
     }
 
     const routePromises = paths.map((p) => this.evaluateRoute(p, amount));
     try {
       const results = await Promise.all(routePromises);
-      const validRoutes = results
-        .filter((r) => r.isOk())
-        .map((r) => r.unwrap())
-        .sort((a, b) => b.amountOut - a.amountOut);
+      const allRoutes = results.filter((r) => !(r instanceof Error)) as Route[];
+      const validRoutes = allRoutes.sort((a, b) => b.amountOut - a.amountOut);
 
       const bestRouteAnalysis = validRoutes[0]
         ? this.analyzeRoute(validRoutes[0])
@@ -211,21 +207,17 @@ export class Router {
       );
 
       if (validRoutes.length === 0) {
-        return Result.err(
-          ErrorUtils.createError(
-            ERROR_CODES.NO_VALID_ROUTE,
-            "No valid routes found"
-          )
+        return ErrorUtils.createError(
+          ERROR_CODES.NO_VALID_ROUTE,
+          "No valid routes found"
         );
       }
-      return Result.ok(validRoutes[0]);
+      return validRoutes[0];
     } catch (error) {
-      return Result.err(
-        ErrorUtils.createError(
-          ERROR_CODES.QUOTE_FAILED,
-          "Failed to evaluate routes",
-          error
-        )
+      return ErrorUtils.createError(
+        ERROR_CODES.QUOTE_FAILED,
+        "Failed to evaluate routes",
+        error
       );
     }
   }
@@ -279,7 +271,7 @@ export class Router {
   private static async evaluateRoute(
     tokens: Token[],
     amount: number
-  ): Promise<Result<Route, Error>> {
+  ): Promise<Route | Error> {
     const startTime = Date.now();
     const hopDetails: any[] = [];
 
@@ -303,12 +295,9 @@ export class Router {
         const opcode = new Opcode().setOperation(isAtoB ? 0x00 : 0x01);
 
         debugUtils.incrementQuotesRequested();
-        const quoteResult = await edge.vault.quote(currentAmount, opcode);
-        if (quoteResult.isErr()) {
-          throw quoteResult.unwrap();
-        }
+        const quote = await edge.vault.quote(currentAmount, opcode);
+        if (quote instanceof Error) throw quote;
 
-        const quote = quoteResult.unwrap();
         totalFees += quote.fee;
 
         hopDetails.push({
@@ -350,14 +339,12 @@ export class Router {
         Date.now() - startTime
       );
 
-      return Result.ok(route);
+      return route;
     } catch (error) {
-      return Result.err(
-        ErrorUtils.createError(
-          ERROR_CODES.QUOTE_FAILED,
-          "Failed to evaluate route",
-          error
-        )
+      return ErrorUtils.createError(
+        ERROR_CODES.QUOTE_FAILED,
+        "Failed to evaluate route",
+        error
       );
     }
   }

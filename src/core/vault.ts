@@ -12,7 +12,7 @@ import {
 } from "@stacks/transactions";
 import { Opcode } from "./opcode";
 import { Dexterity } from "./sdk";
-import { ContractUtils, ErrorUtils, Result } from "../utils";
+import { ErrorUtils } from "../utils";
 import { ERROR_CODES, OPERATION_TYPES } from "../constants";
 import type { LPToken, Quote, Token, Delta, ExecuteOptions } from "../types";
 import { openContractCall } from "@stacks/connect";
@@ -28,25 +28,23 @@ export class Vault {
   // ----------------
   // Quoting & Reads
   // ----------------
-  async quote(amount: number, opcode: Opcode): Promise<Result<Quote, Error>> {
+  async quote(amount: number, opcode: Opcode): Promise<Quote | Error> {
     try {
       const contractQuote = await this.callContract("quote", [amount, opcode]);
       const { dx, dy, dk } = contractQuote as Delta;
 
-      return Result.ok({
+      return {
         amountIn: dx,
         amountOut: dy,
         expectedPrice: dy / amount,
         minimumReceived: dy,
         fee: this.pool.fee,
-      });
+      };
     } catch (error) {
-      return Result.err(
-        ErrorUtils.createError(
-          ERROR_CODES.QUOTE_FAILED,
-          "Failed to get quote",
-          error
-        )
+      return ErrorUtils.createError(
+        ERROR_CODES.QUOTE_FAILED,
+        "Failed to get quote",
+        error
       );
     }
   }
@@ -56,15 +54,14 @@ export class Vault {
   // -----------
   async buildTransaction(opcode: Opcode, amount: number) {
     // Get quote first
-    const quoteResult = await this.quote(amount, opcode);
-    if (quoteResult.isErr()) throw quoteResult.unwrap();
-    const quote = quoteResult.unwrap();
+    const quote = await this.quote(amount, opcode);
+    if (quote instanceof Error) throw quote;
 
     // Build post conditions
     const postConditions = this.buildPostConditions(opcode, amount, quote);
 
     // Return config - functionArgs already handled by callContract
-    return Result.ok({
+    return {
       network: Dexterity.config.network,
       contractAddress: this.contractAddress,
       contractName: this.contractName,
@@ -72,7 +69,7 @@ export class Vault {
       functionArgs: [uintCV(amount), opcode.build()],
       postConditionMode: PostConditionMode.Deny,
       postConditions,
-    });
+    };
   }
 
   async executeTransaction(
@@ -82,9 +79,8 @@ export class Vault {
   ): Promise<TxBroadcastResult | void> {
     try {
       // First build the transaction config
-      const txConfigResult = await this.buildTransaction(opcode, amount);
-      if (txConfigResult.isErr()) throw txConfigResult.unwrap();
-      const txConfig = txConfigResult.unwrap();
+      const txConfig = await this.buildTransaction(opcode, amount);
+      if (txConfig instanceof Error) throw txConfig;
 
       if (Dexterity.config.mode === "server") {
         // Server-side: create and broadcast transaction
@@ -147,15 +143,6 @@ export class Vault {
         cvToHex(uintCV(amount)),
         cvToHex(opcode.build()),
       ]);
-      // const response = await fetchCallReadOnlyFunction({
-      //   contractAddress: this.contractAddress,
-      //   contractName: this.contractName,
-      //   functionName: method,
-      //   functionArgs: [uintCV(amount), opcode.build()],
-      //   senderAddress: this.pool.contractId,
-      //   network: Dexterity.config.network,
-      // });
-      // result = cvToValue(response).value;
     }
     return {
       dx: Number(result.dx.value),

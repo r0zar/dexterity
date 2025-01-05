@@ -9,9 +9,8 @@ describe("Vaults", async () => {
       contractId:
         "SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.anonymous-welsh-cvlt",
     } as any);
-    Dexterity.config.mode = "client";
-    const response = await vault.quote(100, new Opcode().setOperation(0));
-    const quote = response.unwrap();
+    Dexterity.config.mode = "server";
+    const quote = await vault.quote(100, new Opcode().setOperation(0));
     expect(quote).toHaveProperty("amountIn");
   });
 });

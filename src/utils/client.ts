@@ -6,22 +6,36 @@ import { Dexterity } from "../core/sdk";
 import { DEFAULT_SDK_CONFIG } from "../config";
 
 export class StacksClient {
-  static client: Client<paths, `${string}/${string}`> = createClient({
-    baseUrl: DEFAULT_SDK_CONFIG.network?.client.baseUrl,
-  });
+  private static instance: StacksClient;
+  private static currentKeyIndex = 0;
+  private client: Client<paths, `${string}/${string}`>;
 
   private constructor() {
-    StacksClient.client.use({
+    this.client = createClient({
+      baseUrl: DEFAULT_SDK_CONFIG.network?.client.baseUrl,
+    });
+
+    this.client.use({
       onRequest({ request }) {
-        request.headers.set("x-hiro-api-key", Dexterity.config.apiKey!);
+        const apiKeys = Dexterity.config.apiKeys || [Dexterity.config.apiKey];
+        const key = apiKeys[StacksClient.currentKeyIndex];
+        StacksClient.currentKeyIndex = (StacksClient.currentKeyIndex + 1) % apiKeys.length;
+        request.headers.set("x-hiro-api-key", key!);
       },
     });
+  }
+
+  static getInstance(): StacksClient {
+    if (!StacksClient.instance) {
+      StacksClient.instance = new StacksClient();
+    }
+    return StacksClient.instance;
   }
 
   /**
    * Contract Read Methods
    */
-  static async callReadOnly(
+  async callReadOnly(
     contractId: string,
     method: string,
     args: any[] = [],
@@ -48,12 +62,12 @@ export class StacksClient {
             `\nFailed to call read-only method ${method} after ${retries} attempts: ${error}`
           );
         }
-        await new Promise((resolve) => setTimeout(resolve, attempt * 3000)); // Incrementally longer timeout
+        await new Promise((resolve) => setTimeout(resolve, attempt * 3000));
       }
     }
   }
 
-  static async proxyReadOnly(
+  async proxyReadOnly(
     contractId: string,
     method: string,
     args: any[] = []
@@ -73,7 +87,7 @@ export class StacksClient {
     return response.json();
   }
 
-  static async getTokenMetadata(contractId: string): Promise<TokenMetadata> {
+  async getTokenMetadata(contractId: string): Promise<TokenMetadata> {
     const { value } = await this.callReadOnly(contractId, "get-token-uri");
 
     if (!value) {
@@ -88,7 +102,7 @@ export class StacksClient {
     return response.json();
   }
 
-  static async getTokenIdentifier(contractId: string): Promise<string> {
+  async getTokenIdentifier(contractId: string): Promise<string> {
     const response = await this.client.GET(
       "/extended/v1/contract/{contract_id}",
       { params: { path: { contract_id: contractId } } }
@@ -97,27 +111,27 @@ export class StacksClient {
     return abi.fungible_tokens[0].name;
   }
 
-  static async getTotalSupply(contractId: string): Promise<number> {
+  async getTotalSupply(contractId: string): Promise<number> {
     const value = await this.callReadOnly(contractId, "get-total-supply");
     return Number(value);
   }
 
-  static async getTokenDecimals(contractId: string): Promise<number> {
+  async getTokenDecimals(contractId: string): Promise<number> {
     const value = await this.callReadOnly(contractId, "get-decimals");
     return Number(value);
   }
 
-  static async getTokenSymbol(contractId: string): Promise<string> {
+  async getTokenSymbol(contractId: string): Promise<string> {
     const value = await this.callReadOnly(contractId, "get-symbol");
     return String(value);
   }
 
-  static async getTokenName(contractId: string): Promise<string> {
+  async getTokenName(contractId: string): Promise<string> {
     const value = await this.callReadOnly(contractId, "get-name");
     return String(value);
   }
 
-  static async getTokenBalance(
+  async getTokenBalance(
     tokenContract: string,
     holderContract: string
   ): Promise<number> {
@@ -135,7 +149,7 @@ export class StacksClient {
     }
   }
 
-  static async getStxBalance(
+  async getStxBalance(
     address: string,
     retries: number = 3
   ): Promise<any> {
@@ -155,7 +169,7 @@ export class StacksClient {
           );
           return 0;
         }
-        await new Promise((resolve) => setTimeout(resolve, attempt * 3000)); // Incrementally longer timeout
+        await new Promise((resolve) => setTimeout(resolve, attempt * 3000));
       }
     }
   }
@@ -163,7 +177,7 @@ export class StacksClient {
   /**
    * Contract Search Methods
    */
-  static async searchContractsByTrait(
+  async searchContractsByTrait(
     trait: any,
     limit: number = 50
   ): Promise<any[]> {
@@ -182,8 +196,12 @@ export class StacksClient {
   /**
    * Block Methods
    */
-  static async getCurrentBlock(): Promise<number> {
+  async getCurrentBlock(): Promise<number> {
     const response = await this.client.GET("/extended/v1/block" as any);
     return response.data.height;
+  }
+
+  setKeyIndex(index = 0): void {
+    StacksClient.currentKeyIndex = index;
   }
 }

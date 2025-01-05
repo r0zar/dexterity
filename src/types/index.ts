@@ -122,18 +122,9 @@ export interface TransactionOptions {
   network?: StacksNetwork;
 }
 
-export interface CacheConfig {
-  ttl: number;
-  maxItems: number;
-}
-
-export interface CacheConfig {
-  ttl: number;
-  maxItems: number;
-}
-
 export interface SDKConfig {
   apiKey: string;
+  apiKeys?: string[];
   privateKey: string;
   mode: string;
   network: StacksNetwork;
@@ -150,7 +141,6 @@ export interface SDKConfig {
     batchSize?: number;
     parallelRequests?: number;
     refreshInterval?: number;
-    cacheConfig?: CacheConfig;
   };
 }
 
@@ -180,38 +170,9 @@ export interface PoolEvent {
 }
 
 /**
- * Cache Types
- */
-export interface CacheEntry<T> {
-  value: T;
-  expiry: number;
-}
-
-export interface CacheProvider {
-  getOrSet<T>(
-    key: string,
-    fetchFn: () => Promise<T>,
-    ttlMs?: number
-  ): Promise<T>;
-  set<T>(key: string, value: T, ttlMs?: number): void;
-  get<T>(key: string): Promise<T | undefined>;
-  invalidate(key: string): void;
-  clear(): void;
-}
-
-/**
  * Error Types
  */
 export interface DexterityError extends Error {
   code: number;
   details?: any;
-}
-
-/**
- * Response Types
- */
-export interface OperationResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: DexterityError;
 }

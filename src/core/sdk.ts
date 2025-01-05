@@ -1,10 +1,8 @@
 import "dotenv/config";
-import { Result, ErrorUtils } from "../utils";
 import { Router } from "./router";
 import { Vault } from "./vault";
 import {
   DEFAULT_DISCOVERY_CONFIG,
-  ERROR_CODES,
   POOL_TRAIT,
 } from "../constants";
 import type {
@@ -13,31 +11,29 @@ import type {
   SDKConfig,
   ExecuteOptions,
   ContractId,
-  CacheProvider,
 } from "../types";
 import { StacksClient } from "../utils/client";
-import { DEFAULT_SDK_CONFIG } from "../config";
+import { loadConfig } from "../config";
 import { ContractGenerator } from "./generator";
 import {
   generateNewAccount,
   generateWallet,
   getStxAddress,
 } from "@stacks/wallet-sdk";
-import { CharismaCache } from "../utils/cache/charisma";
-import { CustomCache } from "../utils/cache/custom";
-import { MemoryCache } from "../utils/cache/memory";
+import { Cache } from "../utils/cache";
 
 export class Dexterity {
-  static config = DEFAULT_SDK_CONFIG;
-  static cache: CacheProvider = MemoryCache.getInstance();
+  static config = loadConfig();
   static codegen = ContractGenerator;
-  static client = StacksClient;
+  static client = StacksClient.getInstance();
   static router = Router;
-  static cacheProviders = {
-    CharismaCache,
-    CustomCache,
-    MemoryCache,
-  };
+
+  static setConfig(config?: Partial<SDKConfig>): void {
+    this.config = loadConfig({
+      ...this.config,
+      ...config
+    });
+  }
 
   /**
    * Get current configuration
@@ -127,9 +123,7 @@ export class Dexterity {
    * Token Information Methods
    */
   static async getTokenInfo(contractId: string): Promise<Token> {
-    const cacheKey = `token:${contractId}`;
-
-    return this.cache.getOrSet(cacheKey, async () => {
+    return Cache.getOrSet(`token:${contractId}`, async () => {
       try {
         if (contractId === ".stx") {
           return {
@@ -195,12 +189,12 @@ export class Dexterity {
     tokenOutContract: ContractId,
     amount: number
   ) {
-    const routeResult = await this.router.findBestRoute(
+    const route = await this.router.findBestRoute(
       tokenInContract,
       tokenOutContract,
       amount
     );
-    const route = routeResult.unwrap();
+    if (route instanceof Error) throw route;
     return this.router.buildRouterTransaction(route, amount);
   }
 
@@ -214,13 +208,12 @@ export class Dexterity {
     options?: ExecuteOptions
   ) {
     // 1. Find the best route
-    const routeResult = await this.router.findBestRoute(
+    const route = await this.router.findBestRoute(
       tokenInContract,
       tokenOutContract,
       amount
     );
-    const route = routeResult.unwrap();
-
+    if (route instanceof Error) throw route;
     // 4. Execute the route
     const txResult = await this.router.executeSwap(route, amount, options);
     return txResult;
@@ -231,19 +224,15 @@ export class Dexterity {
     tokenOutContract: ContractId,
     amount: number
   ) {
-    const cacheKey = `quote:${tokenInContract}:${tokenOutContract}:${amount}`;
-
-    return await this.cache.getOrSet(
-      cacheKey,
+    return await Cache.getOrSet(
+      `quote:${tokenInContract}:${tokenOutContract}:${amount}`,
       async () => {
-        const routeResult = await this.router.findBestRoute(
+        const route = await this.router.findBestRoute(
           tokenInContract,
           tokenOutContract,
           amount
         );
-
-        if (routeResult.isErr()) throw routeResult.unwrap();
-        const route = routeResult.unwrap();
+        if (route instanceof Error) throw route;
 
         return {
           route,

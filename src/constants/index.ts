@@ -74,7 +74,7 @@ export const CONTRACT_DEFAULTS = {
 export const CACHE_CONFIG = {
   DEFAULT_TTL: 5 * 60 * 1000, // 5 minutes in milliseconds
   QUOTES_TTL: 30 * 1000, // 30 seconds for quotes
-  MAX_ITEMS: 1000, // Maximum number of items in cache
+  MAX_ITEMS: 10000, // Maximum number of items in cache
 } as const;
 
 // Discovery
@@ -83,10 +83,6 @@ export const DEFAULT_DISCOVERY_CONFIG = {
   batchSize: 50,
   parallelRequests: 5,
   refreshInterval: 30000, // 30 seconds
-  cacheConfig: {
-    ttl: 300000, // 5 minutes
-    maxItems: 1000,
-  },
 } as const;
 
 export const POOL_TRAIT = {

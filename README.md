@@ -237,17 +237,15 @@ The cache is used to optimize common operations like token metadata retrieval an
 
 ## Error Handling
 
-The SDK uses a Result type for better error handling:
+The SDK uses a Error type for better error handling:
 
 ```typescript
-// Using Result type
-const quoteResult = await vault.quote(amount, opcode);
-if (quoteResult.isErr()) {
-  const error = quoteResult.unwrap();
-  console.error(`Quote failed: ${error.message}`);
-  return;
+// During Error scenario
+const quote = await vault.quote(amount, opcode);
+if (quote instanceof Error) {
+  console.error(`Quote failed: ${quote.message}`);
+  throw quote;
 }
-const quote = quoteResult.unwrap();
 
 // Error codes
 export const ERROR_CODES = {

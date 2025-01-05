@@ -335,17 +335,16 @@ program
         console.log("\nAnalyzing Routes:");
         console.log("─────────────────────────────────");
 
-        const route = await Dexterity.router.findBestRoute(
+        const bestRoute = await Dexterity.router.findBestRoute(
           tokenIn,
           tokenOut,
           1000000
         );
-        if (route.isErr()) {
+        if (bestRoute instanceof Error) {
           console.log(chalk.red("No route found"));
           return;
         }
 
-        const bestRoute = route.unwrap();
         console.log("Optimal Path:");
         bestRoute.path.forEach((token, i) => {
           if (i < bestRoute.path.length - 1) {
