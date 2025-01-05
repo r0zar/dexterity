@@ -135,15 +135,28 @@ export class StacksClient {
     }
   }
 
-  static async getStxBalance(address: string): Promise<number> {
-    try {
-      const response = await this.client.GET(
-        `/extended/v1/address/${address}/stx` as any
-      );
-      return Number(response.data.balance);
-    } catch (error) {
-      console.warn(`Error fetching STX balance for ${address}:`, error);
-      return 0;
+  static async getStxBalance(
+    address: string,
+    retries: number = 3
+  ): Promise<any> {
+    let attempt = 0;
+    while (attempt < retries) {
+      try {
+        const response = await this.client.GET(
+          `/extended/v1/address/${address}/stx` as any
+        );
+        return Number(response.data.balance);
+      } catch (error) {
+        attempt++;
+        if (attempt >= retries) {
+          console.warn(
+            `Error fetching STX balance for ${address} after ${retries} attempts:`,
+            error
+          );
+          return 0;
+        }
+        await new Promise((resolve) => setTimeout(resolve, attempt * 3000)); // Incrementally longer timeout
+      }
     }
   }
 
