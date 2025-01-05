@@ -1,6 +1,6 @@
 # Dexterity SDK
 
-![Dexterity Banner](github-banner.png)
+![Dexterity Banner](https://github.com/r0zar/dexterity/blob/main/github-banner.png)
 
 A TypeScript SDK and CLI for interacting with the Dexterity AMM protocol on Stacks. Dexterity uses an isolated vault system where each liquidity pool exists as an independent smart contract for enhanced security.
 
