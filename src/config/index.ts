@@ -19,17 +19,12 @@ export const DEFAULT_SDK_CONFIG: SDKConfig = {
   proxy: "https://charisma.rocks/api/v0/proxy",
   network: STACKS_MAINNET,
   defaultSlippage: 0,
-  maxHops: 3,
+  maxHops: 6,
+  debug: false,
   preferredPools: [],
   routerAddress: "SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS",
   routerName: "multihop",
-  minimumLiquidity: 1000,
-  discovery: {
-    startBlock: 0,
-    batchSize: 1000,
-    parallelRequests: 1,
-    refreshInterval: 300000,
-  },
+  parallelRequests: 1,
 };
 
 function loadEnvironmentConfig(): Partial<SDKConfig> {
@@ -69,9 +64,9 @@ function validateConfig(config: SDKConfig): void {
 
   if (
     config.maxHops !== undefined &&
-    (config.maxHops < 1 || config.maxHops > 5)
+    (config.maxHops < 1 || config.maxHops > 9)
   ) {
-    throw new Error("Max hops must be between 1 and 5");
+    throw new Error("Max hops must be between 1 and 9");
   }
 
   if (

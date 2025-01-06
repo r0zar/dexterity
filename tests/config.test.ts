@@ -60,22 +60,6 @@ describe("SDK Configuration", () => {
     expect(Dexterity.getConfig().network).toBe(STACKS_TESTNET);
   });
 
-  it("should merge discovery config updates", () => {
-    const currentConfig = Dexterity.getConfig();
-    const newParallelRequests = 3;
-
-    Dexterity.setConfig({
-      discovery: {
-        ...currentConfig.discovery,
-        parallelRequests: newParallelRequests
-      }
-    });
-
-    const updatedConfig = Dexterity.getConfig();
-    expect(updatedConfig.discovery.parallelRequests).toBe(newParallelRequests);
-    expect(updatedConfig.discovery.batchSize).toBe(currentConfig.discovery.batchSize);
-  });
-
   it("should prioritize runtime config over environment", () => {
     process.env.HIRO_API_KEY = "env-api-key";
     Dexterity.setConfig({ apiKey: "runtime-key" });

@@ -1,4 +1,7 @@
-import { CACHE_CONFIG } from "../constants";
+const CACHE_CONFIG = {
+    DEFAULT_TTL: 5 * 60 * 1000, // 5 minutes in milliseconds
+    MAX_ITEMS: 10000, // Maximum number of items in cache
+};
 
 interface CacheEntry<T> {
   value: T;

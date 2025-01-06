@@ -5,28 +5,25 @@ import { Opcode } from "./opcode";
 import { ErrorUtils } from "../utils";
 import { ERROR_CODES } from "../constants";
 import { Dexterity } from "./sdk";
-import { debugUtils } from "../utils/router.debug";
+import { debugUtils } from "../utils/debug";
 import {
   uintCV,
   PostConditionMode,
-  cvToHex,
   TxBroadcastResult,
   makeContractCall,
   broadcastTransaction,
-  ClarityValue,
-  ContractCallOptions,
   tupleCV,
   principalCV,
 } from "@stacks/transactions";
 import type {
   Token,
   Route,
-  RouteHop,
+  Hop,
   ExecuteOptions,
   ContractId,
 } from "../types";
 import { DEFAULT_SDK_CONFIG } from "../config";
-import { openContractCall, TransactionOptions } from "@stacks/connect";
+import { openContractCall } from "@stacks/connect";
 
 interface GraphEdge {
   vault: Vault;
@@ -186,9 +183,9 @@ export class Router {
     if (paths.length === 0) {
       debugUtils.logNoPathsFound();
       return ErrorUtils.createError(
-          ERROR_CODES.INVALID_PATH,
-          `No path found from ${tokenIn} to ${tokenOut}`
-        )
+        ERROR_CODES.INVALID_PATH,
+        `No path found from ${tokenIn} to ${tokenOut}`
+      );
     }
 
     const routePromises = paths.map((p) => this.evaluateRoute(p, amount));
@@ -200,11 +197,7 @@ export class Router {
       const bestRouteAnalysis = validRoutes[0]
         ? this.analyzeRoute(validRoutes[0])
         : null;
-      debugUtils.logFoundPaths(
-        paths.length,
-        validRoutes.length,
-        bestRouteAnalysis
-      );
+      debugUtils.logFoundPaths(paths.length, validRoutes.length, bestRouteAnalysis);
 
       if (validRoutes.length === 0) {
         return ErrorUtils.createError(
@@ -212,6 +205,7 @@ export class Router {
           "No valid routes found"
         );
       }
+
       return validRoutes[0];
     } catch (error) {
       return ErrorUtils.createError(
@@ -222,12 +216,12 @@ export class Router {
     }
   }
 
-  private static findAllPaths(
+  static findAllPaths(
     fromId: string,
     toId: string,
     maxHops: number,
     path: Token[] = [],
-    visited: Set<string> = new Set()
+    visitedVaults: Set<string> = new Set()
   ): Token[][] {
     const startTime = Date.now();
     const results: Token[][] = [];
@@ -236,23 +230,31 @@ export class Router {
 
     debugUtils.incrementPathsExplored();
     const newPath = [...path, node.token];
-    visited.add(fromId);
 
-    let found = 0;
-    if (fromId === toId && newPath.length > 1) {
+    // Add path if we've reached target token
+    if (fromId === toId && path.length >= 2) {
       results.push(newPath);
-      found++;
-    } else if (newPath.length <= maxHops) {
-      for (const [targetId] of node.edges) {
-        if (!visited.has(targetId)) {
+    } else if (newPath[newPath.length - 1].contractId === toId) {
+      results.push(newPath);
+    }
+
+    // Continue exploring if under max hops
+    if (newPath.length <= maxHops) {
+      for (const [targetId, edge] of node.edges) {
+        const vaultId = edge.vault.getPool().contractId;
+        
+        // Skip if we've visited this vault before
+        if (!visitedVaults.has(vaultId)) {
+          const newVisitedVaults = new Set(visitedVaults);
+          newVisitedVaults.add(vaultId);
+          
           const nested = this.findAllPaths(
             targetId,
             toId,
             maxHops,
             newPath,
-            new Set(visited)
+            newVisitedVaults
           );
-          found += nested.length;
           results.push(...nested);
         }
       }
@@ -260,15 +262,14 @@ export class Router {
 
     debugUtils.logPathExploration(
       fromId,
-      Array.from(visited),
+      [], // No need to track visited tokens anymore
       newPath.length,
-      found,
-      Date.now() - startTime
+      results.length
     );
     return results;
   }
 
-  private static async evaluateRoute(
+  static async evaluateRoute(
     tokens: Token[],
     amount: number
   ): Promise<Route | Error> {
@@ -276,7 +277,7 @@ export class Router {
     const hopDetails: any[] = [];
 
     try {
-      const hops: RouteHop[] = [];
+      const hops: Hop[] = [];
       let currentAmount = amount;
       let totalFees = 0;
 
@@ -327,16 +328,12 @@ export class Router {
         hops,
         amountIn: amount,
         amountOut: currentAmount,
-        totalFees,
       };
 
       debugUtils.logRouteEvaluation(
         tokens.map((t) => t.contractId),
         amount,
         currentAmount,
-        totalFees,
-        hopDetails,
-        Date.now() - startTime
       );
 
       return route;
@@ -362,7 +359,6 @@ export class Router {
   static analyzeRoute(route: Route) {
     return {
       totalHops: route.hops.length,
-      totalFees: route.totalFees,
       vaults: route.hops.map((h) => h.vault),
     };
   }

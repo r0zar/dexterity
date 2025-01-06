@@ -1,9 +1,14 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import { Dexterity } from "../src/core/sdk";
 import { Vault } from "../src/core/vault";
 import { Opcode } from "../src/core/opcode";
 
 describe("Vaults", async () => {
+
+  beforeAll(async () => {
+    Dexterity.config.debug = true;
+  });
+
   it("should get a quote", async () => {
     const vault = new Vault({
       contractId:

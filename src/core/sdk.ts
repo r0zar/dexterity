@@ -2,7 +2,6 @@ import "dotenv/config";
 import { Router } from "./router";
 import { Vault } from "./vault";
 import {
-  DEFAULT_DISCOVERY_CONFIG,
   POOL_TRAIT,
 } from "../constants";
 import type {
@@ -57,9 +56,7 @@ export class Dexterity {
 
     // Process contracts in parallel batches
     const pools: LPToken[] = [];
-    const parallelRequests =
-      this.config.discovery?.parallelRequests ??
-      DEFAULT_DISCOVERY_CONFIG.parallelRequests;
+    const parallelRequests = this.config.parallelRequests
 
     for (let i = 0; i < filteredContracts.length; i += parallelRequests) {
       const batch = filteredContracts.slice(i, i + parallelRequests);
@@ -239,8 +236,7 @@ export class Dexterity {
           amountIn: route.amountIn,
           amountOut: route.amountOut,
           expectedPrice: route.amountOut / route.amountIn,
-          minimumReceived: route.amountOut,
-          fee: route.totalFees,
+          minimumReceived: route.amountOut
         };
       },
       30000 // 30 second cache for quotes

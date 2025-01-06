@@ -8,7 +8,7 @@ import { homedir } from "os";
 import { join } from "path";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { STACKS_MAINNET, STACKS_TESTNET } from "@stacks/network";
-import { debugUtils } from "./utils/router.debug";
+import { debugUtils } from "./utils/debug";
 
 // Config file management
 const CONFIG_DIR = join(homedir(), ".dexterity");
@@ -50,7 +50,6 @@ program
     "Network to use (mainnet/testnet)",
     "mainnet"
   )
-  .option("-d, --debug", "Enable debug mode")
   .hook("preAction", async (thisCommand) => {
     const options = thisCommand.opts();
 
@@ -63,25 +62,6 @@ program
 
     // Apply saved config
     Object.assign(Dexterity.config, savedConfig);
-
-    // Setup debug if enabled
-    if (options.debug) {
-      debugUtils.setDebugMode({
-        enabled: true,
-        logPathfinding: true,
-        logQuotes: true,
-        logEvaluation: true,
-        verbosity: 2,
-        callback: (info) => {
-          console.log(
-            chalk.gray(
-              `Debug [${info.phase}]:`,
-              JSON.stringify(info.details, null, 2)
-            )
-          );
-        },
-      });
-    }
   });
 
 // Configuration Commands
@@ -367,17 +347,17 @@ program
           `Density:   ${chalk.cyan((stats.edgeCount / (stats.nodeCount * (stats.nodeCount - 1))).toFixed(3))}`
         );
 
-        if (debugUtils.config.enabled) {
+        if (Dexterity.config.debug) {
           const debugStats = debugUtils.getStats();
           console.log("\nDebug Statistics:");
           console.log(
-            `Paths Explored:    ${chalk.yellow(debugStats?.pathsExplored)}`
+            `Paths Explored:    ${chalk.yellow(debugStats.pathsExplored)}`
           );
           console.log(
-            `Routes Evaluated:  ${chalk.yellow(debugStats?.routesEvaluated)}`
+            `Routes Evaluated:  ${chalk.yellow(debugStats.routesEvaluated)}`
           );
           console.log(
-            `Quotes Requested:  ${chalk.yellow(debugStats?.quotesRequested)}`
+            `Quotes Requested:  ${chalk.yellow(debugStats.quotesRequested)}`
           );
         }
       }

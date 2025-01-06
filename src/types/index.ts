@@ -60,7 +60,7 @@ export interface Delta {
 /**
  * Route Types
  */
-export interface RouteHop {
+export interface Hop {
   vault: Vault;
   tokenIn: Token;
   tokenOut: Token;
@@ -73,10 +73,9 @@ export interface RouteHop {
 
 export interface Route {
   path: Token[];
-  hops: RouteHop[];
+  hops: Hop[];
   amountIn: number;
   amountOut: number;
-  totalFees: number;
 }
 
 /**
@@ -132,16 +131,11 @@ export interface SDKConfig {
   stxAddress: string;
   defaultSlippage: number;
   maxHops: number;
+  debug: boolean;
   preferredPools: string[];
   routerAddress: string;
   routerName: string;
-  minimumLiquidity: number;
-  discovery: {
-    startBlock?: number;
-    batchSize?: number;
-    parallelRequests?: number;
-    refreshInterval?: number;
-  };
+  parallelRequests: number;
 }
 
 export interface ContractParams {

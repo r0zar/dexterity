@@ -14,7 +14,7 @@ export const ERROR_CODES = {
   TRANSACTION_FAILED: 1006,
   INVALID_OPCODE: 1007,
   NO_VALID_ROUTE: 1008,
-  INVALID_CONFIG: 1009,
+  NO_PROFITABLE_ROUTE: 1009,
   DISCOVERY_FAILED: 1010,
   INVALID_CONTRACT: 1011,
 
@@ -68,21 +68,6 @@ export const CONTRACT_DEFAULTS = {
     OPCODE: 16,
     TOKEN_URI: 256,
   },
-} as const;
-
-// Cache configuration
-export const CACHE_CONFIG = {
-  DEFAULT_TTL: 5 * 60 * 1000, // 5 minutes in milliseconds
-  QUOTES_TTL: 30 * 1000, // 30 seconds for quotes
-  MAX_ITEMS: 10000, // Maximum number of items in cache
-} as const;
-
-// Discovery
-export const DEFAULT_DISCOVERY_CONFIG = {
-  startBlock: 0,
-  batchSize: 50,
-  parallelRequests: 5,
-  refreshInterval: 30000, // 30 seconds
 } as const;
 
 export const POOL_TRAIT = {
