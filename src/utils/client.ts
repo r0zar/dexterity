@@ -3,7 +3,8 @@ import { cvToValue, hexToCV, parseToCV, cvToHex } from "@stacks/transactions";
 import { TokenMetadata } from "../types";
 import { paths } from "@stacks/blockchain-api-client/lib/generated/schema";
 import { Dexterity } from "../core/sdk";
-import { DEFAULT_SDK_CONFIG } from "../config";
+import { DEFAULT_SDK_CONFIG } from "./config";
+import { STACKS_MAINNET } from "@stacks/network";
 
 export class StacksClient {
   private static instance: StacksClient;
@@ -12,17 +13,38 @@ export class StacksClient {
 
   private constructor() {
     this.client = createClient({
-      baseUrl: DEFAULT_SDK_CONFIG.network?.client.baseUrl,
+      baseUrl: STACKS_MAINNET.client.baseUrl,
     });
 
     this.client.use({
       onRequest({ request }) {
         const apiKeys = Dexterity.config.apiKeys || [Dexterity.config.apiKey];
-        const key = apiKeys[StacksClient.currentKeyIndex];
-        StacksClient.currentKeyIndex = (StacksClient.currentKeyIndex + 1) % apiKeys.length;
-        request.headers.set("x-hiro-api-key", key!);
+        if (!apiKeys.length) return;
+
+        const key = StacksClient.getNextApiKey(apiKeys);
+        request.headers.set("x-hiro-api-key", key);
       },
     });
+  }
+
+  private static getNextApiKey(apiKeys: string[]): string {
+    if (!apiKeys.length) return "";
+
+    const rotationStrategy = Dexterity.config.apiKeyRotation || "loop";
+    
+    if (rotationStrategy === "random") {
+      const randomIndex = Math.floor(Math.random() * apiKeys.length);
+      return apiKeys[randomIndex];
+    } else {
+      // Default loop strategy
+      const key = apiKeys[StacksClient.currentKeyIndex];
+      StacksClient.currentKeyIndex = (StacksClient.currentKeyIndex + 1) % apiKeys.length;
+      return key;
+    }
+  }
+
+  static setKeyIndex(index = 0): void {
+    StacksClient.currentKeyIndex = index;
   }
 
   static getInstance(): StacksClient {
@@ -199,9 +221,5 @@ export class StacksClient {
   async getCurrentBlock(): Promise<number> {
     const response = await this.client.GET("/extended/v1/block" as any);
     return response.data.height;
-  }
-
-  setKeyIndex(index = 0): void {
-    StacksClient.currentKeyIndex = index;
   }
 }

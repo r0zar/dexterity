@@ -13,7 +13,7 @@ import {
 import { Opcode } from "./opcode";
 import { Dexterity } from "./sdk";
 import { ErrorUtils } from "../utils";
-import { ERROR_CODES, OPERATION_TYPES } from "../constants";
+import { ERROR_CODES, OPERATION_TYPES } from "../utils/constants";
 import type { LPToken, Quote, Token, Delta, ExecuteOptions } from "../types";
 import { openContractCall } from "@stacks/connect";
 

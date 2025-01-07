@@ -3,7 +3,7 @@
 import { Vault } from "./vault";
 import { Opcode } from "./opcode";
 import { ErrorUtils } from "../utils";
-import { ERROR_CODES } from "../constants";
+import { ERROR_CODES } from "../utils/constants";
 import { Dexterity } from "./sdk";
 import { debugUtils } from "../utils/debug";
 import {
@@ -22,7 +22,7 @@ import type {
   ExecuteOptions,
   ContractId,
 } from "../types";
-import { DEFAULT_SDK_CONFIG } from "../config";
+import { DEFAULT_SDK_CONFIG } from "../utils/config";
 import { openContractCall } from "@stacks/connect";
 
 interface GraphEdge {
@@ -223,7 +223,6 @@ export class Router {
     path: Token[] = [],
     visitedVaults: Set<string> = new Set()
   ): Token[][] {
-    const startTime = Date.now();
     const results: Token[][] = [];
     const node = this.nodes.get(fromId);
     if (!node) return results;

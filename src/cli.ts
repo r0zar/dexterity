@@ -4,34 +4,12 @@ import { Dexterity } from "./core/sdk";
 import type { ContractId, SDKConfig } from "./types";
 import chalk from "chalk";
 import ora from "ora";
-import { homedir } from "os";
-import { join } from "path";
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { STACKS_MAINNET, STACKS_TESTNET } from "@stacks/network";
 import { debugUtils } from "./utils/debug";
-
-// Config file management
-const CONFIG_DIR = join(homedir(), ".dexterity");
-const CONFIG_FILE = join(CONFIG_DIR, "config.json");
-
-function loadConfig(): Partial<SDKConfig> {
-  if (!existsSync(CONFIG_FILE)) {
-    return {};
-  }
-  try {
-    return JSON.parse(readFileSync(CONFIG_FILE, "utf-8"));
-  } catch (error) {
-    console.error(chalk.yellow("Warning: Could not parse config file"));
-    return {};
-  }
-}
-
-function saveConfig(config: Partial<SDKConfig>): void {
-  if (!existsSync(CONFIG_DIR)) {
-    mkdirSync(CONFIG_DIR, { recursive: true });
-  }
-  writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
-}
+import {
+  CLI_CONFIG_FILE,
+  DEFAULT_SDK_CONFIG
+} from "./utils/config";
 
 // Initialize program
 const program = new Command();
@@ -39,218 +17,91 @@ const program = new Command();
 program
   .name("dexterity")
   .description("CLI for interacting with Dexterity AMM protocol")
-  .version(
-    process.env.npm_package_version || require("../package.json").version
-  );
+  .version(process.env.npm_package_version || require("../package.json").version);
 
 // Global options
 program
-  .option(
-    "-n, --network <network>",
-    "Network to use (mainnet/testnet)",
-    "mainnet"
-  )
+  .option("-n, --network <network>", "Network to use (mainnet/testnet)", "mainnet")
   .hook("preAction", async (thisCommand) => {
     const options = thisCommand.opts();
-
-    // Load config
-    const savedConfig = loadConfig();
-
-    // Set network
-    Dexterity.config.network =
-      options.network === "mainnet" ? STACKS_MAINNET : STACKS_TESTNET;
-
-    // Apply saved config
-    Object.assign(Dexterity.config, savedConfig);
+    
+    // Set network based on CLI option
+    await Dexterity.configure({ network: options.network });
   });
 
 // Configuration Commands
 program
   .command("config")
   .description("Manage CLI configuration")
-  .option("set <key> <value>", "Set configuration value")
-  .option("get <key>", "Get configuration value")
-  .option("reset", "Reset configuration to defaults")
-  .action(async (cmd, options) => {
-    const config = loadConfig();
+  .option("-l, --list", "List current configuration")
+  .option("-s, --set <key> <value>", "Set configuration value")
+  .option("-g, --get <key>", "Get configuration value")
+  .action(async (options) => {
+    try {
+      if (options.list || (!options.set && !options.get && !options.reset)) {
+        // Display current configuration
+        const currentConfig = Dexterity.config;
 
-    if (options.args.length === 0) {
-      console.log("\nCurrent Configuration:");
-      console.log("─────────────────────────────────");
+        console.log("\nCurrent Configuration:");
+        console.log("─────────────────────");
 
-      // Format config for display, showing which values are defaults
-      const currentConfig = Dexterity.config;
-      const userConfig = loadConfig();
+        Object.entries(currentConfig).forEach(([key, value]) => {
+          if (key === 'apiKey' || key === 'privateKey') {
+            const source = currentConfig[key] ? chalk.blue("(custom)") : chalk.gray("(default)");
+            console.log(`${chalk.cyan(key.padEnd(16))}: ${value ? '********' : 'not set'} ${source}`);
+          } else if (key === 'network') {
+            const source = currentConfig[key] ? chalk.blue("(custom)") : chalk.gray("(default)");
+            console.log(`${chalk.cyan(key.padEnd(16))}: ${value.client.baseUrl} ${source}`);
+          } else {
+            const source = currentConfig[key as keyof SDKConfig] ? chalk.blue("(custom)") : chalk.gray("(default)");
+            console.log(`${chalk.cyan(key.padEnd(16))}: ${value} ${source}`);
+          }
+        });
 
-      const displayConfig = {
-        network: {
-          value: currentConfig.network.client.baseUrl,
-          source: userConfig.network ? "user" : "default",
-        },
-        mode: {
-          value: currentConfig.mode,
-          source: userConfig.mode ? "user" : "default",
-        },
-        maxHops: {
-          value: currentConfig.maxHops,
-          source: userConfig.maxHops ? "user" : "default",
-        },
-        defaultSlippage: {
-          value: currentConfig.defaultSlippage,
-          source: userConfig.defaultSlippage ? "user" : "default",
-        },
-        proxy: {
-          value: currentConfig.proxy,
-          source: userConfig.proxy ? "user" : "default",
-        },
-        apiKey: {
-          value: currentConfig.apiKey ? "***********" : "not set",
-          source: userConfig.apiKey ? "user" : "default",
-        },
-      };
-
-      // Display each config setting with color coding
-      Object.entries(displayConfig).forEach(([key, setting]) => {
-        const valueColor =
-          setting.source === "user" ? chalk.green : chalk.yellow;
-        const sourceLabel =
-          setting.source === "user"
-            ? chalk.blue("(custom)")
-            : chalk.gray("(default)");
-        console.log(
-          `${chalk.cyan(key.padEnd(16))}: ${valueColor(setting.value)} ${sourceLabel}`
-        );
-      });
-
-      console.log("\nConfig file location:", chalk.gray(CONFIG_FILE));
-      if (Object.keys(userConfig).length === 0) {
-        console.log(
-          chalk.yellow("\nNo custom configuration set. Using default values.")
-        );
-        console.log(
-          `To set a value, use: ${chalk.cyan("dexterity config set <key> <value>")}`
-        );
-      }
-    } else if (options.set) {
-      const [key, value] = options.set.split(" ");
-
-      // Validate the key
-      const validKeys = [
-        "network",
-        "mode",
-        "maxHops",
-        "defaultSlippage",
-        "proxy",
-        "apiKey",
-      ];
-      if (!validKeys.includes(key)) {
-        console.error(chalk.red("Error: Invalid configuration key"));
-        console.log("\nValid configuration keys:");
-        validKeys.forEach((k) => console.log(`  ${chalk.cyan(k)}`));
-        process.exit(1);
+        console.log("\nConfig file location:", chalk.gray(CLI_CONFIG_FILE));
+        return;
       }
 
-      try {
-        // Parse value with validation
-        let parsedValue;
-        switch (key) {
-          case "network":
-            if (!["mainnet", "testnet"].includes(value)) {
-              throw new Error('Network must be either "mainnet" or "testnet"');
-            }
-            parsedValue = value;
-            break;
-          case "mode":
-            if (!["client", "server"].includes(value)) {
-              throw new Error('Mode must be either "client" or "server"');
-            }
-            parsedValue = value;
-            break;
-          case "maxHops":
-            const hops = parseInt(value);
-            if (isNaN(hops) || hops < 1 || hops > 5) {
-              throw new Error("maxHops must be a number between 1 and 5");
-            }
-            parsedValue = hops;
-            break;
-          case "defaultSlippage":
-            const slippage = parseFloat(value);
-            if (isNaN(slippage) || slippage < 0 || slippage > 100) {
-              throw new Error(
-                "defaultSlippage must be a number between 0 and 100"
-              );
-            }
-            parsedValue = slippage;
-            break;
-          case "minimumLiquidity":
-            const min = parseInt(value);
-            if (isNaN(min) || min < 0) {
-              throw new Error("minimumLiquidity must be a positive number");
-            }
-            parsedValue = min;
-            break;
-          default:
-            parsedValue = value;
+      if (options.set) {
+        const [key, value] = options.set.split(" ");
+        const parsedValue = parseConfigValue(value);
+        
+        // Update config through SDK which will validate
+        const updatedConfig = { [key]: parsedValue };
+        await Dexterity.configure(updatedConfig);
+        
+        // If we get here, validation passed
+        console.log(chalk.green(`Successfully set ${chalk.cyan(key)} = ${chalk.yellow(value)}`));
+        return;
+      }
+
+      if (options.get) {
+        const key = options.get;
+        const config = Dexterity.config;
+        const value = config[key as keyof SDKConfig];
+        
+        if (value === undefined) {
+          console.error(chalk.red(`Error: Invalid configuration key '${key}'`));
+          process.exit(1);
         }
 
-        config[key as keyof SDKConfig] = parsedValue;
-        saveConfig(config);
-        console.log(
-          chalk.green(
-            `Successfully set ${chalk.cyan(key)} = ${chalk.yellow(parsedValue)}`
-          )
-        );
-
-        // Show current value being used
-        console.log(chalk.gray("\nCurrent configuration:"));
-        const currentValue = Dexterity.config[key as keyof SDKConfig];
-        console.log(`${key}: ${chalk.cyan(currentValue)}`);
-      } catch (error) {
-        console.error(
-          chalk.red("Error:"),
-          error instanceof Error ? error.message : error
-        );
-        process.exit(1);
+        console.log(`${key}: ${chalk.cyan(value)}`);
+        return;
       }
-    } else if (options.get) {
-      const key = options.get;
-      const validKeys = [
-        "network",
-        "mode",
-        "maxHops",
-        "defaultSlippage",
-        "minimumLiquidity",
-        "proxy",
-        "apiKey",
-      ];
-
-      if (!validKeys.includes(key)) {
-        console.error(chalk.red("Error: Invalid configuration key"));
-        console.log("\nValid configuration keys:");
-        validKeys.forEach((k) => console.log(`  ${chalk.cyan(k)}`));
-        process.exit(1);
-      }
-
-      const userValue = config[key as keyof SDKConfig];
-      const currentValue = Dexterity.config[key as keyof SDKConfig];
-
-      console.log("\nConfiguration value for:", chalk.cyan(key));
-      console.log("─────────────────────────────────");
-      if (userValue !== undefined) {
-        console.log(`Custom value: ${chalk.green(userValue)}`);
-      } else {
-        console.log(`Default value: ${chalk.yellow(currentValue)}`);
-        console.log(
-          chalk.gray(
-            `\nTo set a custom value:\ndexterity config set ${key} <value>`
-          )
-        );
-      }
-    } else if (options.reset) {
-      saveConfig({});
-      console.log(chalk.green("Configuration reset to defaults"));
+    } catch (error) {
+      console.error(chalk.red('Error:'), error instanceof Error ? error.message : error);
+      process.exit(1);
     }
   });
+
+// Helper function to parse config values
+function parseConfigValue(value: string): any {
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  if (value === 'null') return null;
+  if (!isNaN(Number(value))) return Number(value);
+  return value;
+}
 
 // Inspection Commands
 program

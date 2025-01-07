@@ -12,7 +12,7 @@ describe("Dexterity SDK - Basic Operations", () => {
   let pools: LPToken[] = [];
 
   beforeAll(async () => {
-    await Dexterity.deriveSigner(0);
+    await Dexterity.configure({debug: true});
     
     // Only discover the specific pool we need
     const poolId = "SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.dexterity-pool-v1";
@@ -21,7 +21,6 @@ describe("Dexterity SDK - Basic Operations", () => {
       pools = [pool];
       Dexterity.router.loadVaults([new Vault(pool)]);
     }
-    Dexterity.config.debug = true;
   }, 200000);
 
   it("should discover specific pool", async () => {

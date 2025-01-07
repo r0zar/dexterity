@@ -3,7 +3,7 @@ import { Router } from "./router";
 import { Vault } from "./vault";
 import {
   POOL_TRAIT,
-} from "../constants";
+} from "../utils/constants";
 import type {
   LPToken,
   Token,
@@ -12,34 +12,25 @@ import type {
   ContractId,
 } from "../types";
 import { StacksClient } from "../utils/client";
-import { loadConfig } from "../config";
+import { loadConfig, DEFAULT_SDK_CONFIG } from "../utils/config";
 import { ContractGenerator } from "./generator";
-import {
-  generateNewAccount,
-  generateWallet,
-  getStxAddress,
-} from "@stacks/wallet-sdk";
 import { Cache } from "../utils/cache";
 
 export class Dexterity {
-  static config = loadConfig();
+  static config = DEFAULT_SDK_CONFIG;
   static codegen = ContractGenerator;
   static client = StacksClient.getInstance();
   static router = Router;
 
-  static setConfig(config?: Partial<SDKConfig>): void {
-    this.config = loadConfig({
-      ...this.config,
-      ...config
-    });
+  /**
+   * Set SDK configuration
+   * @param config Partial configuration object
+   */
+  static async configure(config?: Partial<SDKConfig>): Promise<void> {
+    // Load and validate config using loadConfig utility
+    this.config = await loadConfig(config);
   }
 
-  /**
-   * Get current configuration
-   */
-  static getConfig(): SDKConfig {
-    return this.config;
-  }
   /**
    * Discovery Methods
    */
@@ -282,32 +273,5 @@ export class Dexterity {
       }
     }
     return Array.from(tokens.values());
-  }
-
-  static async deriveSigner(index = 0) {
-    if (process.env.SEED_PHRASE) {
-      // using a blank password since wallet isn't persisted
-      const password = "";
-      // create a Stacks wallet with the mnemonic
-      let wallet = await generateWallet({
-        secretKey: process.env.SEED_PHRASE,
-        password: password,
-      });
-      // add a new account to reach the selected index
-      for (let i = 0; i <= index; i++) {
-        wallet = generateNewAccount(wallet);
-      }
-      // return address and key for selected index
-      const stxAddress = getStxAddress(
-        wallet.accounts[index],
-        this.config.network
-      );
-
-      this.config.mode = "server";
-      this.config.privateKey = wallet.accounts[index].stxPrivateKey;
-      this.config.stxAddress = stxAddress;
-    } else {
-      this.config.mode = "client";
-    }
   }
 }

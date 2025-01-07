@@ -45,18 +45,6 @@ export interface Delta {
   dk: number;
 }
 
-// export interface TransactionConfig {
-//   network: StacksNetwork;
-//   contractAddress: string;
-//   contractName: string;
-//   functionName: string;
-//   functionArgs: any[];
-//   postConditionMode: PostConditionMode;
-//   postConditions: any[];
-//   onFinish?: (data: any) => void;
-//   onCancel?: () => void;
-// }
-
 /**
  * Route Types
  */
@@ -124,9 +112,10 @@ export interface TransactionOptions {
 export interface SDKConfig {
   apiKey: string;
   apiKeys?: string[];
+  apiKeyRotation?: "loop" | "random";
   privateKey: string;
   mode: string;
-  network: StacksNetwork;
+  network: 'mainnet' | 'testnet';
   proxy: string;
   stxAddress: string;
   defaultSlippage: number;
