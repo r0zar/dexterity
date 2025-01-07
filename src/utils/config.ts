@@ -28,7 +28,7 @@ export const DEFAULT_SDK_CONFIG: SDKConfig = {
   proxy: "https://charisma.rocks/api/v0/proxy",
   network: 'mainnet',
   defaultSlippage: 0,
-  maxHops: 6,
+  maxHops: 3,
   debug: false,
   preferredPools: [],
   routerAddress: "SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS",

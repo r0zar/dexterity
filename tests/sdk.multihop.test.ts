@@ -31,7 +31,6 @@ describe("Dexterity SDK - Multi-hop Operations", () => {
 
   it("should find arbitrage opportunities", async () => {
     const quote = await Dexterity.getQuote(CHA_TOKEN, CHA_TOKEN, 1000000);
-    console.log(JSON.stringify(quote, null, 2))
     // If a profitable route is found
     if (!(quote instanceof Error)) {
       expect(quote.route.hops.length).toBeGreaterThanOrEqual(0);

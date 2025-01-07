@@ -40,7 +40,6 @@ interface GraphNode {
 export class Router {
   static vaults: Map<string, Vault> = new Map();
   static nodes: Map<string, GraphNode> = new Map();
-  static maxHops: number = DEFAULT_SDK_CONFIG.maxHops;
 
   // -----------------------------------
   // Transaction building for multi-hops
@@ -177,8 +176,8 @@ export class Router {
     tokenOut: ContractId,
     amount: number
   ): Promise<Route | Error> {
-    debugUtils.logPathfindingStart(tokenIn, tokenOut, amount, this.maxHops);
-    const paths = this.findAllPaths(tokenIn, tokenOut, this.maxHops);
+    debugUtils.logPathfindingStart(tokenIn, tokenOut, amount, Dexterity.config.maxHops);
+    const paths = this.findAllPaths(tokenIn, tokenOut);
 
     if (paths.length === 0) {
       debugUtils.logNoPathsFound();
@@ -219,7 +218,6 @@ export class Router {
   static findAllPaths(
     fromId: string,
     toId: string,
-    maxHops: number,
     path: Token[] = [],
     visitedVaults: Set<string> = new Set()
   ): Token[][] {
@@ -238,7 +236,7 @@ export class Router {
     }
 
     // Continue exploring if under max hops
-    if (newPath.length <= maxHops) {
+    if (newPath.length <= Dexterity.config.maxHops) {
       for (const [targetId, edge] of node.edges) {
         const vaultId = edge.vault.getPool().contractId;
         
@@ -250,7 +248,6 @@ export class Router {
           const nested = this.findAllPaths(
             targetId,
             toId,
-            maxHops,
             newPath,
             newVisitedVaults
           );

@@ -133,7 +133,7 @@ describe("Dexterity SDK - Basic Operations", () => {
   // Add this test to help debug the path finding
   describe("Path Finding", () => {
     it("should find direct path between tokens", () => {
-      const paths = Router.findAllPaths(CHA_TOKEN, DMG_TOKEN, 3);
+      const paths = Router.findAllPaths(CHA_TOKEN, DMG_TOKEN);
       expect(paths.length).toBeGreaterThan(0);
       
       // Log the first path for debugging
