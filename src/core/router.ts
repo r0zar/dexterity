@@ -120,6 +120,10 @@ export class Router {
   // Graph / Vault loading
   // -----------------------------------
   static loadVaults(vaults: Vault[]): void {
+    // Clear existing data
+    this.edges.clear();
+    this.nodes.clear();
+
     for (const vault of vaults) {
       this.edges.set(vault.contractId, vault);
       const [token0, token1] = vault.getTokens();
@@ -142,18 +146,15 @@ export class Router {
       const node0 = this.nodes.get(token0.contractId)!;
       const node1 = this.nodes.get(token1.contractId)!;
 
-      // Generate unique keys for multiple edges between same tokens
-      const edge0Key = `${token1.contractId}-${vault.contractId}`;
-      const edge1Key = `${token0.contractId}-${vault.contractId}`;
-
-      // Set edges with unique keys
-      node0.edges.set(edge0Key, {
+      // Add edges in both directions
+      node0.edges.set(token1.contractId, {
         vault,
         target: token1,
         liquidity: reserve1,
         fee: vault.getFee(),
       });
-      node1.edges.set(edge1Key, {
+
+      node1.edges.set(token0.contractId, {
         vault,
         target: token0,
         liquidity: reserve0,
@@ -240,8 +241,7 @@ export class Router {
 
     // Continue exploring if under max hops
     if (newPath.length <= Dexterity.config.maxHops) {
-      for (const [edgeKey, edge] of node.edges) {
-        const targetId = edge.target.contractId;
+      for (const [targetId, edge] of node.edges) {
         const vaultId = edge.vault.contractId;
         
         // Skip if we've visited this vault before

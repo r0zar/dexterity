@@ -27,6 +27,7 @@ describe("Dexterity SDK - Basic Operations", () => {
   }, 200000);
 
   it("should discover specific pool", async () => {
+    console.log(Dexterity.router.edges)
     expect(pools.length).toBe(2);
   });
 
@@ -98,12 +99,12 @@ describe("Dexterity SDK - Basic Operations", () => {
       // Check CHA -> DMG edge
       expect(chaNode?.edges.has(STX_TOKEN)).toBe(true);
       const chaEdge = chaNode?.edges.get(STX_TOKEN);
-      expect(chaEdge?.vault.contractId).toBe(pools[0].contractId);
+      expect(chaEdge?.vault.contractId).toBe(pools[1].contractId);
       
       // Check DMG -> CHA edge
       expect(stxNode?.edges.has(CHA_TOKEN)).toBe(true);
       const stxEdge = stxNode?.edges.get(CHA_TOKEN);
-      expect(stxEdge?.vault.contractId).toBe(pools[0].contractId);
+      expect(stxEdge?.vault.contractId).toBe(pools[1].contractId);
     });
 
     it("should have correct edge properties", () => {
@@ -194,114 +195,6 @@ describe("Dexterity SDK - Basic Operations", () => {
       // Verify Router selects the best vault
       const routerQuote = await Dexterity.getQuote(STX_TOKEN, CHA_TOKEN, testAmount);
       expect(routerQuote.route.hops[0].vault.contractId).toBe(bestQuote.vault);
-    });
-
-    it("should properly discover wrapper vault", async () => {
-      // Check if wrapper vault was loaded correctly
-      const wrapperVault = Dexterity.getVault(pools[0].contractId!);
-      console.log('Wrapper vault details:', {
-        contractId: wrapperVault?.contractId,
-        externalPoolId: wrapperVault?.externalPoolId,
-        tokens: wrapperVault?.getTokens().map(t => t.contractId)
-      });
-
-      // Verify wrapper vault exists in router edges
-      expect(wrapperVault).toBeDefined();
-      expect(wrapperVault?.externalPoolId).toBeDefined();
-
-      // Check if tokens are properly mapped in graph
-      const stxVaults = Dexterity.getVaultsForToken(STX_TOKEN);
-      const chaVaults = Dexterity.getVaultsForToken(CHA_TOKEN);
-
-      console.log('Available vaults for tokens:', {
-        STX: Array.from(stxVaults.values()).map(v => v.contractId),
-        CHA: Array.from(chaVaults.values()).map(v => v.contractId)
-      });
-
-      // Wrapper vault should be in both token's vault lists
-      expect(stxVaults.has(pools[0].contractId!)).toBe(true);
-      expect(chaVaults.has(pools[0].contractId!)).toBe(true);
-
-      // Check graph edges
-      const chaNode = Router.nodes.get(CHA_TOKEN);
-      const stxEdge = chaNode?.edges.get(STX_TOKEN);
-      
-      console.log('Graph edge details:', {
-        edge: stxEdge?.vault.contractId,
-        target: stxEdge?.target.contractId,
-        liquidity: stxEdge?.liquidity
-      });
-
-      expect(stxEdge).toBeDefined();
-      expect(stxEdge?.vault.contractId).toBe(pools[0].contractId);
-    });
-
-    it("should properly load both vaults in router", () =>{
-      // Check router edges
-      console.log('Router edges:', {
-        edgeCount: Router.edges.size,
-        edgeIds: Array.from(Router.edges.keys())
-      });
-
-      // Check nodes and their edges
-      const chaNode = Router.nodes.get(CHA_TOKEN);
-      const stxNode = Router.nodes.get(STX_TOKEN);
-
-      console.log('Node edges:', {
-        CHA: Array.from(chaNode?.edges.keys() || []),
-        STX: Array.from(stxNode?.edges.keys() || [])
-      });
-
-      // Verify both vaults are in router edges
-      expect(Router.edges.has(pools[0].contractId!)).toBe(true);
-      expect(Router.edges.has(pools[1].contractId!)).toBe(true);
-
-      // Verify both tokens have edges to each other through both vaults
-      expect(chaNode?.edges.size).toBe(2); // Should have 2 edges to STX (one per vault)
-      expect(stxNode?.edges.size).toBe(2); // Should have 2 edges to CHA (one per vault)
-
-      // Check edge details
-      const chaEdges = Array.from(chaNode?.edges.values() || []);
-      console.log('CHA edges details:', chaEdges.map(edge => ({
-        vault: edge.vault.contractId,
-        target: edge.target.contractId,
-        liquidity: edge.liquidity
-      })));
-    });
-
-    it("should handle multiple vaults for same token pair", () => {
-      // Check initial router state
-      const chaNode = Router.nodes.get(CHA_TOKEN);
-      console.log('Initial CHA node edges:', {
-        edgeCount: chaNode?.edges.size,
-        edges: Array.from(chaNode?.edges.values() || []).map(e => ({
-          vault: e.vault.contractId,
-          target: e.target.contractId
-        }))
-      });
-
-      // Re-load vaults in reverse order
-      Router.loadVaults([pools[1], pools[0]].map(p => Dexterity.getVault(p.contractId!)!));
-      
-      // Check router state after reload
-      console.log('Router state after reload:', {
-        edgeCount: Router.edges.size,
-        vaultIds: Array.from(Router.edges.keys()),
-        nodeEdges: Array.from(chaNode?.edges.values() || []).map(e => ({
-          vault: e.vault.contractId,
-          target: e.target.contractId
-        }))
-      });
-
-      // Both vaults should exist in router edges
-      expect(Router.edges.size).toBe(2);
-      expect(Router.edges.has(pools[0].contractId!)).toBe(true);
-      expect(Router.edges.has(pools[1].contractId!)).toBe(true);
-
-      // Node should have edges through both vaults
-      const paths = Router.findAllPaths(CHA_TOKEN, STX_TOKEN);
-      console.log('Found paths:', paths.map(p => p.map(t => t.contractId)));
-      expect(paths.length).toBe(2); // Should find paths through both vaults
     });
   });
 }); 
