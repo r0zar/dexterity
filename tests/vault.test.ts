@@ -10,7 +10,7 @@ describe("Vaults", async () => {
   beforeAll(async () => {
     Dexterity.configure({debug: true});
     // Initialize with a known test pool
-    const cvltVault = await Vault.build("SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.anonymous-welsh-cvlt");
+    const cvltVault = await Vault.build("SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.perseverantia-omnia-vincit");
     if (!cvltVault) {
       throw new Error("Failed to initialize test vault");
     }
@@ -43,13 +43,13 @@ describe("Vaults", async () => {
   });
 
   describe("Reserve Operations", () => {
-    // it("should get reserves using opcode", async () => {
-    //   const quote = await testVault.quote(0, Opcode.lookupReserves()) as Quote;
-    //   expect(quote).toHaveProperty("amountIn");
-    //   expect(quote).toHaveProperty("amountOut");
-    //   expect(quote.amountIn).toBeGreaterThan(0);
-    //   expect(quote.amountOut).toBeGreaterThan(0);
-    // });
+    it("should get reserves using opcode", async () => {
+      const quote = await testVault.quote(0, Opcode.lookupReserves()) as Quote;
+      expect(quote).toHaveProperty("amountIn");
+      expect(quote).toHaveProperty("amountOut");
+      expect(quote.amountIn).toBeGreaterThan(0);
+      expect(quote.amountOut).toBeGreaterThan(0);
+    });
 
     it("should handle reserve updates", async () => {
       const [initialReserve0, initialReserve1] = testVault.getReserves();
