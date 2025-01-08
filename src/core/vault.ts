@@ -1,8 +1,6 @@
 import {
-  fetchCallReadOnlyFunction,
   uintCV,
   cvToHex,
-  cvToValue,
   PostCondition,
   Pc,
   PostConditionMode,
@@ -13,16 +11,181 @@ import {
 import { Opcode } from "./opcode";
 import { Dexterity } from "./sdk";
 import { ErrorUtils } from "../utils";
-import { ERROR_CODES, OPERATION_TYPES } from "../utils/constants";
-import type { LPToken, Quote, Token, Delta, ExecuteOptions } from "../types";
+import { ERROR_CODES } from "../utils/constants";
+import type { LPToken, Quote, Token, Delta, ExecuteOptions, ContractId, TokenMetadata, Liquidity } from "../types";
 import { openContractCall } from "@stacks/connect";
 
 export class Vault {
-  private readonly contractAddress: string;
-  private readonly contractName: string;
+  public readonly contractAddress: string;
+  public readonly contractName: string;
+  public readonly contractId: ContractId;
+  
+  // Token metadata
+  public name: string = "";
+  public symbol: string = "";
+  public decimals: number = 0;
+  public identifier: string = "";
+  public description: string = "";
+  public image: string = "";
+  public fee: number = 0;
+  
+  // Pool state
+  public tokenA: Liquidity;
+  public tokenB: Liquidity;
+  public supply: number = 0;
 
-  constructor(private readonly pool: LPToken) {
-    [this.contractAddress, this.contractName] = pool.contractId.split(".");
+  constructor(contractId: ContractId) {
+    this.contractId = contractId;
+    [this.contractAddress, this.contractName] = contractId.split(".");
+    
+    // Initialize empty tokens
+    this.tokenA = this.createLiquidity();
+    this.tokenB = this.createLiquidity();
+  }
+
+  private createLiquidity(): Liquidity {
+    return {
+      contractId: "" as ContractId,
+      identifier: "",
+      name: "",
+      symbol: "",
+      decimals: 0,
+      reserves: 0
+    };
+  }
+
+  /**
+   * Static factory method to build a Vault instance from a contract ID
+   */
+  static async build(contractId: ContractId): Promise<Vault | null> {
+    try {
+      const vault = new Vault(contractId);
+      await vault.fetchMetadata();
+      await vault.fetchPoolState();
+      return vault;
+    } catch (error) {
+      console.error(`Error building vault for ${contractId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Fetch and populate pool metadata
+   */
+  private async fetchMetadata(): Promise<TokenMetadata> {
+    const metadata = await Dexterity.client.getTokenMetadata(this.contractId);
+    if (!metadata.properties) {
+      throw new Error("Invalid pool metadata");
+    }
+
+    // Update vault metadata
+    this.name = metadata.name;
+    this.symbol = metadata.symbol;
+    this.decimals = metadata.decimals;
+    this.identifier = metadata.identifier;
+    this.description = metadata.description || "";
+    this.image = metadata.image || "";
+    this.fee = Math.floor((metadata.properties.lpRebatePercent / 100) * 1000000);
+
+    // Fetch and set token info
+    const [token0, token1] = await Promise.all([
+      Dexterity.getTokenInfo(metadata.properties.tokenAContract),
+      Dexterity.getTokenInfo(metadata.properties.tokenBContract),
+    ]);
+
+    // Update tokens
+    this.tokenA = { ...token0, reserves: 0 };
+    this.tokenB = { ...token1, reserves: 0 };
+
+    return metadata;
+  }
+  
+  /**
+   * Fetch both reserves and supply using lookup opcode
+   */
+  private async fetchPoolState(): Promise<{ reserves: [number, number], supply: number }> {
+    try {
+      const lookupOpcode = Opcode.lookupReserves();
+      const data = await this.callContract("quote", [0, lookupOpcode]);
+      
+      const reserves: [number, number] = [Number(data.dx), Number(data.dy)];
+      const supply = Number(data.dk);
+
+      // Update vault state
+      this.tokenA.reserves = reserves[0];
+      this.tokenB.reserves = reserves[1];
+      this.supply = supply;
+
+      return { reserves, supply };
+    } catch (error) {
+      // Fallback to individual balance checks
+      const [reserve0, reserve1, supply] = await Promise.all([
+        this.tokenA.contractId === ".stx"
+          ? Dexterity.client.getStxBalance(this.contractId)
+          : Dexterity.client.getTokenBalance(this.tokenA.contractId, this.contractId),
+        this.tokenB.contractId === ".stx"
+          ? Dexterity.client.getStxBalance(this.contractId)
+          : Dexterity.client.getTokenBalance(this.tokenB.contractId, this.contractId),
+        Dexterity.client.getTotalSupply(this.contractId)
+      ]);
+
+      // Update vault state
+      this.tokenA.reserves = reserve0;
+      this.tokenB.reserves = reserve1;
+      this.supply = supply;
+
+      return { reserves: [reserve0, reserve1], supply };
+    }
+  }
+
+  /**
+   * Get current reserves using lookup opcode
+   */
+  async fetchReserves(): Promise<[number, number]> {
+    const { reserves } = await this.fetchPoolState();
+    return reserves;
+  }
+
+  /**
+   * Get current total supply
+   */
+  async fetchSupply(): Promise<number> {
+    const { supply } = await this.fetchPoolState();
+    return supply;
+  }
+
+  // -----------
+  //  Current State Accessors
+  // -----------
+  getTokens(): [Token, Token] {
+    return [this.tokenA, this.tokenB];
+  }
+
+  getReserves(): [number, number] {
+    return [this.tokenA.reserves, this.tokenB.reserves];
+  }
+
+  getFee(): number {
+    return this.fee;
+  }
+
+  // Convert to LPToken type for backward compatibility
+  toLPToken(): LPToken {
+    return {
+      contractId: this.contractId,
+      name: this.name,
+      symbol: this.symbol,
+      decimals: this.decimals,
+      identifier: this.identifier,
+      description: this.description,
+      image: this.image,
+      fee: this.fee,
+      liquidity: [
+        { ...this.tokenA },
+        { ...this.tokenB }
+      ],
+      supply: this.supply
+    };
   }
 
   // ----------------
@@ -38,7 +201,7 @@ export class Vault {
         amountOut: dy,
         expectedPrice: dy / amount,
         minimumReceived: dy,
-        fee: this.pool.fee,
+        fee: this.fee,
       };
     } catch (error) {
       return ErrorUtils.createError(
@@ -119,7 +282,7 @@ export class Vault {
     // If you want slippage logic here, can do so. For now, a direct eq.
     return [
       this.createPostCondition(tokenIn, amountIn, Dexterity.config.stxAddress),
-      this.createPostCondition(tokenOut, amountOut, this.pool.contractId),
+      this.createPostCondition(tokenOut, amountOut, this.contractId),
     ];
   }
 
@@ -158,17 +321,17 @@ export class Vault {
   ): PostCondition[] {
     const operation = opcode.getOperation();
     switch (operation) {
-      case OPERATION_TYPES.SWAP_A_TO_B:
+      case Opcode.types.SWAP_A_TO_B:
         return this.buildSwapPostConditions(
-          this.pool.liquidity[0],
-          this.pool.liquidity[1],
+          this.tokenA,
+          this.tokenB,
           amount,
           quote.amountOut
         );
-      case OPERATION_TYPES.SWAP_B_TO_A:
+      case Opcode.types.SWAP_B_TO_A:
         return this.buildSwapPostConditions(
-          this.pool.liquidity[1],
-          this.pool.liquidity[0],
+          this.tokenB,
+          this.tokenA,
           amount,
           quote.amountOut
         );
@@ -188,24 +351,5 @@ export class Vault {
     return Pc.principal(sender)
       .willSendEq(amount)
       .ft(token.contractId, token.identifier);
-  }
-
-  // -----------
-  //  Accessors
-  // -----------
-  getPool(): LPToken {
-    return this.pool;
-  }
-
-  getTokens(): [Token, Token] {
-    return [this.pool.liquidity[0], this.pool.liquidity[1]];
-  }
-
-  getReserves(): [number, number] {
-    return [this.pool.liquidity[0].reserves, this.pool.liquidity[1].reserves];
-  }
-
-  getFee(): number {
-    return this.pool.fee;
   }
 }

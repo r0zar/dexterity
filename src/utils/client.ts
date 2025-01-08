@@ -3,7 +3,6 @@ import { cvToValue, hexToCV, parseToCV, cvToHex } from "@stacks/transactions";
 import { TokenMetadata } from "../types";
 import { paths } from "@stacks/blockchain-api-client/lib/generated/schema";
 import { Dexterity } from "../core/sdk";
-import { DEFAULT_SDK_CONFIG } from "./config";
 import { STACKS_MAINNET } from "@stacks/network";
 
 export class StacksClient {

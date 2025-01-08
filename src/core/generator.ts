@@ -118,10 +118,11 @@ export class ContractGenerator {
 (define-constant LP_REBATE u${lpRebateRaw})
 
 ;; Operation Types (Byte 0 of opcode)
-(define-constant OP_SWAP_A_TO_B 0x00)     ;; Swap token A for B
-(define-constant OP_SWAP_B_TO_A 0x01)     ;; Swap token B for A
-(define-constant OP_ADD_LIQUIDITY 0x02)   ;; Add liquidity
+(define-constant OP_SWAP_A_TO_B 0x00)      ;; Swap token A for B
+(define-constant OP_SWAP_B_TO_A 0x01)      ;; Swap token B for A
+(define-constant OP_ADD_LIQUIDITY 0x02)    ;; Add liquidity
 (define-constant OP_REMOVE_LIQUIDITY 0x03) ;; Remove liquidity
+(define-constant OP_LOOKUP_RESERVES 0x04)  ;; Lookup reserves
 
 ;; Define LP token
 (define-fungible-token ${lpTokenSymbol})

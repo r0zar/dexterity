@@ -8,8 +8,13 @@ const CHA_TOKEN = "SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.charisma-token";
 describe("Dexterity SDK - Multi-hop Operations", () => {
   beforeAll(async () => {
     await Dexterity.configure({debug: true});
-    await Dexterity.discoverPools(); // Need full pool discovery for multi-hop
+    await Dexterity.discover(); // Need full pool discovery for multi-hop
   }, 200000);
+
+  it("should discover pools", async () => {
+    const vaults = Dexterity.getVaults();
+    expect(vaults.length).toBeGreaterThan(0);
+  }, 200000);   
 
   it("should get multi-hop quote", async () => {
     const quote = await Dexterity.getQuote(DMG_TOKEN, SKULL_TOKEN, 10000000);

@@ -22,7 +22,6 @@ import type {
   ExecuteOptions,
   ContractId,
 } from "../types";
-import { DEFAULT_SDK_CONFIG } from "../utils/config";
 import { openContractCall } from "@stacks/connect";
 
 interface GraphEdge {
@@ -38,7 +37,7 @@ interface GraphNode {
 }
 
 export class Router {
-  static vaults: Map<string, Vault> = new Map();
+  static edges: Map<string, Vault> = new Map();
   static nodes: Map<string, GraphNode> = new Map();
 
   // -----------------------------------
@@ -65,7 +64,7 @@ export class Router {
       uintCV(amount),
       ...route.hops.map((hop) =>
         tupleCV({
-          pool: principalCV(hop.vault.getPool().contractId),
+          pool: principalCV(hop.vault.contractId),
           opcode: hop.opcode.build(),
         })
       ),
@@ -122,7 +121,7 @@ export class Router {
   // -----------------------------------
   static loadVaults(vaults: Vault[]): void {
     for (const vault of vaults) {
-      this.vaults.set(vault.getPool().contractId, vault);
+      this.edges.set(vault.contractId, vault);
       const [token0, token1] = vault.getTokens();
       const [reserve0, reserve1] = vault.getReserves();
 
@@ -163,7 +162,7 @@ export class Router {
     if (!node) return new Map();
     const vaults = new Map<string, Vault>();
     for (const edge of node.edges.values()) {
-      vaults.set(edge.vault.getPool().contractId, edge.vault);
+      vaults.set(edge.vault.contractId, edge.vault);
     }
     return vaults;
   }
@@ -238,7 +237,7 @@ export class Router {
     // Continue exploring if under max hops
     if (newPath.length <= Dexterity.config.maxHops) {
       for (const [targetId, edge] of node.edges) {
-        const vaultId = edge.vault.getPool().contractId;
+        const vaultId = edge.vault.contractId;
         
         // Skip if we've visited this vault before
         if (!visitedVaults.has(vaultId)) {
@@ -345,11 +344,8 @@ export class Router {
   // -----------------------------------
   // Utility methods
   // -----------------------------------
-  static getBestVaultForPair(tokenAId: string, tokenBId: string): Vault | null {
-    const node = this.nodes.get(tokenAId);
-    if (!node) return null;
-    const edge = node.edges.get(tokenBId);
-    return edge?.vault ?? null;
+  static getVaults(): Vault[] {
+    return Array.from(this.edges.values());
   }
 
   static analyzeRoute(route: Route) {

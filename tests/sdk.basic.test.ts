@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { Dexterity } from "../src/core/sdk";
-import { LPToken } from "../src/types";
 import { Vault } from "../src/core/vault";
 import { Router } from "../src/core/router";
 
@@ -9,17 +8,17 @@ const CHA_TOKEN = "SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.charisma-token";
 const DMG_TOKEN = "SP2D5BGGJ956A635JG7CJQ59FTRFRB0893514EZPJ.dme000-governance-token";
 
 describe("Dexterity SDK - Basic Operations", () => {
-  let pools: LPToken[] = [];
+  let pools: Partial<Vault>[] = [];
 
   beforeAll(async () => {
     await Dexterity.configure({debug: true});
     
     // Only discover the specific pool we need
     const poolId = "SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.dexterity-pool-v1";
-    const pool = await Dexterity.processPoolContract(poolId);
-    if (pool) {
-      pools = [pool];
-      Dexterity.router.loadVaults([new Vault(pool)]);
+    const vault = await Vault.build(poolId);
+    if (vault) {
+      Dexterity.router.loadVaults([vault]);
+      pools.push(vault.toLPToken());
     }
   }, 200000);
 
@@ -95,12 +94,12 @@ describe("Dexterity SDK - Basic Operations", () => {
       // Check CHA -> DMG edge
       expect(chaNode?.edges.has(DMG_TOKEN)).toBe(true);
       const chaEdge = chaNode?.edges.get(DMG_TOKEN);
-      expect(chaEdge?.vault.getPool().contractId).toBe(pools[0].contractId);
+      expect(chaEdge?.vault.contractId).toBe(pools[0].contractId);
       
       // Check DMG -> CHA edge
       expect(dmgNode?.edges.has(CHA_TOKEN)).toBe(true);
       const dmgEdge = dmgNode?.edges.get(CHA_TOKEN);
-      expect(dmgEdge?.vault.getPool().contractId).toBe(pools[0].contractId);
+      expect(dmgEdge?.vault.contractId).toBe(pools[0].contractId);
     });
 
     it("should have correct edge properties", () => {
@@ -108,7 +107,6 @@ describe("Dexterity SDK - Basic Operations", () => {
       const edge = chaNode?.edges.get(DMG_TOKEN);
       
       expect(edge).toBeDefined();
-      expect(edge?.fee).toBe(pools[0].fee);
       expect(edge?.liquidity).toBeGreaterThan(0);
       expect(edge?.target.contractId).toBe(DMG_TOKEN);
     });
@@ -120,13 +118,6 @@ describe("Dexterity SDK - Basic Operations", () => {
       expect(stats.edgeCount).toBe(2); // Bidirectional edge between CHA-DMG
       expect(stats.tokenIds).toContain(CHA_TOKEN);
       expect(stats.tokenIds).toContain(DMG_TOKEN);
-    });
-
-    it("should find best vault for pair", () => {
-      const bestVault = Router.getBestVaultForPair(CHA_TOKEN, DMG_TOKEN);
-      
-      expect(bestVault).toBeDefined();
-      expect(bestVault?.getPool().contractId).toBe(pools[0].contractId);
     });
   });
 

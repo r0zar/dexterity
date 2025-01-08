@@ -10,6 +10,7 @@ import {
   CLI_CONFIG_FILE,
   DEFAULT_SDK_CONFIG
 } from "./utils/config";
+import { Vault } from "./core/vault";
 
 // Initialize program
 const program = new Command();
@@ -107,42 +108,41 @@ function parseConfigValue(value: string): any {
 program
   .command("inspect")
   .description("Inspect protocol state")
-  .option("-p, --pool <contractId>", "Inspect specific pool")
+  .option("-v, --vault <contractId>", "Inspect specific vault")
   .option("-t, --token <contractId>", "Inspect specific token")
   .option("-r, --route <tokenIn> <tokenOut>", "Inspect routing between tokens")
   .option("-g, --graph", "Show routing graph statistics")
   .action(async (options) => {
     try {
       const spinner = ora("Loading protocol state...").start();
-      await Dexterity.discoverPools();
       spinner.stop();
 
-      if (options.pool) {
-        const pool = Dexterity.getVault(options.pool);
-        if (!pool) {
-          console.error(chalk.red("Pool not found"));
+      if (options.vault) {
+        const vault = await Vault.build(options.vault);
+        if (!vault) {
+          console.error(chalk.red("Vault not found"));
           return;
         }
 
-        const poolData = pool.getPool();
-        console.log("\nPool Details:");
+        console.log("\nVault Details:");
         console.log("─────────────────────────────────");
-        console.log(`Name:      ${chalk.cyan(poolData.name)}`);
-        console.log(`Contract:  ${chalk.gray(poolData.contractId)}`);
-        console.log(`Fee:       ${(poolData.fee / 10000).toFixed(2)}%`);
-        console.log(`Image:     ${poolData.image}`);
+        console.log(`Name:      ${chalk.cyan(vault.name)}`);
+        console.log(`Contract:  ${chalk.gray(vault.contractId)}`);
+        console.log(`Fee:       ${(vault.fee / 10000).toFixed(2)}%`);
+        console.log(`Image:     ${vault.image}`);
 
-        const [reserve0, reserve1] = pool.getReserves();
+        const [reserve0, reserve1] = vault.getReserves();
         console.log("\nReserves:");
         console.log(
-          `${poolData.liquidity[0].symbol}: ${chalk.yellow(reserve0.toLocaleString())}`
+          `${vault.tokenA.symbol}: ${chalk.yellow(reserve0.toLocaleString())}`
         );
         console.log(
-          `${poolData.liquidity[1].symbol}: ${chalk.yellow(reserve1.toLocaleString())}`
+          `${vault.tokenB.symbol}: ${chalk.yellow(reserve1.toLocaleString())}`
         );
       } else if (options.token) {
+        await Dexterity.discover();
         const token = await Dexterity.getTokenInfo(options.token);
-        const pools = Dexterity.getVaultsForToken(options.token);
+        const vaults = Dexterity.getVaultsForToken(options.token);
 
         console.log("\nToken Details:");
         console.log("─────────────────────────────────");
@@ -152,16 +152,16 @@ program
         console.log(`Decimals:  ${token.decimals}`);
         console.log(`Image:     ${token.image}`);
 
-        if (pools.size > 0) {
+        if (vaults.size > 0) {
           console.log("\nAvailable in Pools:");
-          for (const pool of pools.values()) {
-            const poolData = pool.getPool();
+          for (const vault of vaults.values()) {
             console.log(
-              `- ${chalk.blue(poolData.name)} (${poolData.contractId})`
+              `- ${chalk.blue(vault.name)} (${vault.contractId})`
             );
           }
         }
       } else if (options.route) {
+        await Dexterity.discover();
         const [tokenIn, tokenOut] = options.route;
         console.log("\nAnalyzing Routes:");
         console.log("─────────────────────────────────");
@@ -189,6 +189,7 @@ program
         console.log(`Hops:      ${chalk.yellow(bestRoute.hops.length)}`);
         // console.log(`Total Fee: ${chalk.yellow((bestRoute.totalFees / 10000).toFixed(2)}%`)}`);
       } else if (options.graph) {
+        await Dexterity.discover();
         const stats = Dexterity.router.getGraphStats();
         console.log("\nRouting Graph Statistics:");
         console.log("─────────────────────────────────");
@@ -231,7 +232,7 @@ program
   .action(async (tokenIn: ContractId, tokenOut: ContractId, amount: string) => {
     try {
       const spinner = ora("Loading pools...").start();
-      await Dexterity.discoverPools();
+      await Dexterity.discover();
       spinner.text = "Getting quote...";
 
       const quote = await Dexterity.getQuote(
@@ -272,25 +273,27 @@ program
     }
   });
 
-// Pool discovery command
+// Vault discovery command
 program
-  .command("pools")
-  .description("List all available liquidity pools")
+  .command("vaults")
+  .description("List all available liquidity vaults")
   .action(async () => {
     try {
-      const spinner = ora("Discovering pools...").start();
-      const pools = await Dexterity.discoverPools();
+      const spinner = ora("Discovering vaults...").start();
+      await Dexterity.discover();
       spinner.stop();
 
-      console.log("\nAvailable Pools:");
+      const vaults = Dexterity.getVaults();
+
+      console.log("\nAvailable Vaults:");
       console.log("─────────────────────────────────");
-      pools.forEach((pool) => {
-        console.log(`\n${chalk.cyan(pool.name)} (${pool.symbol})`);
-        console.log(`Contract: ${chalk.gray(pool.contractId)}`);
+      vaults.forEach((vault) => {
+        console.log(`\n${chalk.cyan(vault.name)} (${vault.symbol})`);
+        console.log(`Contract: ${chalk.gray(vault.contractId)}`);
         console.log(
-          `Tokens:   ${pool.liquidity[0].symbol}-${pool.liquidity[1].symbol}`
+          `Tokens:   ${vault.tokenA.symbol}-${vault.tokenB.symbol}`
         );
-        console.log(`Fee:      ${(pool.fee / 10000).toFixed(2)}%`);
+        console.log(`Fee:      ${(vault.fee / 10000).toFixed(2)}%`);
       });
     } catch (error) {
       console.error(

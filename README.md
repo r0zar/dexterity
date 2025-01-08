@@ -15,9 +15,6 @@ npm install dexterity-sdk
 ```typescript
 import { Dexterity } from "dexterity-sdk";
 
-// Initialize SDK with configuration
-const client = new Dexterity();
-
 // Get a quote for swapping tokens
 const quote = await Dexterity.getQuote(
   "SP123.token-a",  // token in
@@ -79,31 +76,28 @@ The SDK supports both client-side (browser) and server-side usage:
 
 ```typescript
 // Client-side (browser)
-Dexterity.setConfig({
+Dexterity.configure({
   mode: "client",
-  network: STACKS_MAINNET,
+  network: 'testnet',
 });
 
 // Server-side
-Dexterity.setConfig({
+Dexterity.configure({
   mode: "server",
-  network: STACKS_MAINNET,
-  apiKey: process.env.STACKS_API_KEY,
+  network: 'mainnet,
+  apiKey: process.env.HIRO_API_KEY,
 });
-
-// Using environment variables
-await Dexterity.deriveSigner();
 ```
 
 Any configuration can be modified:
 
 ```typescript
 // Update individual settings
-Dexterity.setConfig({ maxHops: 3 });
-Dexterity.setConfig({ defaultSlippage: 0.5 });
+Dexterity.configure({ maxHops: 3 });
+Dexterity.configure({ defaultSlippage: 0.5 });
 
 // Get current config
-const config = Dexterity.getConfig();
+const config = Dexterity.config
 ```
 
 ### Working with Quotes
@@ -141,37 +135,17 @@ Interact with individual liquidity pools:
 
 ```typescript
 // Get a specific pool
-const vault = Dexterity.getVault("SP123.pool-abc");
+const vault = Dexterity.build("SP123.pool-abc");
 
 // Get pool information
-const pool = vault.getPool();
 const [tokenA, tokenB] = vault.getTokens();
 const [reserveA, reserveB] = vault.getReserves();
 
 // Get a quote from the pool
 const quote = await vault.quote(
   1000000,
-  new Opcode().setOperation(OPERATION_TYPES.SWAP_A_TO_B)
+  Opcode.swapExactAForB()
 );
-```
-
-### Cache Configuration
-
-The SDK includes configurable caching:
-
-```typescript
-// Example with Vercel KV
-import { kv } from "@vercel/kv";
-
-const kvCache = new CustomCache({
-  get: async (key) => await kv.get(key),
-  set: async (key, value, ttlMs) => {
-    const ttlSeconds = ttlMs ? Math.floor(ttlMs / 1000) : undefined;
-    await kv.set(key, value, { ex: ttlSeconds });
-  },
-});
-
-Dexterity.cache = kvCache;
 ```
 
 ## CLI Usage
@@ -183,10 +157,10 @@ The SDK includes a powerful CLI for interacting with the protocol:
 npm install -g dexterity-sdk
 
 # Get a quote
-dexterity quote .stx SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.usda 1000000
+dexterity quote .stx SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.charisma-token 1000000
 
 # List all pools
-dexterity pools
+dexterity vaults
 
 # Show debug information
 dexterity -d inspect -g
@@ -214,10 +188,10 @@ Analyze protocol components:
 
 ```bash
 # Inspect a pool
-dexterity inspect -p SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.stx-usda-v1
+dexterity inspect -v SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.charisma-token
 
 # Analyze token routes
-dexterity inspect -r .stx SP2C2YFP12AJZB4MABJBAJ55XECVS7E4PMMZ89YZR.usda
+dexterity inspect -r .stx SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.charisma-token
 
 # Show routing statistics
 dexterity inspect -g
@@ -233,9 +207,6 @@ npm test
 
 # With coverage
 npm run test:coverage
-
-# Watch mode
-npm run test:watch
 ```
 
 ### Building
@@ -246,9 +217,6 @@ npm run clean && npm run build
 
 # Development
 npm run dev
-
-# Watch mode
-npm run dev:watch
 ```
 
 ### Contributing
@@ -258,7 +226,3 @@ npm run dev:watch
 3. Commit your changes (`git commit -am 'Add some amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.

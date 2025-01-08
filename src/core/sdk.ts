@@ -32,81 +32,37 @@ export class Dexterity {
   }
 
   /**
-   * Discovery Methods
+   * Discover vaults and load them into the router
    */
-  static async discoverPools(limit?: number, blacklist: string[] = []) {
-    const contracts = await this.client.searchContractsByTrait(
+  static async discover({blacklist = [], serialize = false, load = true}: {blacklist?: ContractId[], serialize?: boolean, load?: boolean} = {}): Promise<Partial<Vault>[]> {
+    const contracts = await Dexterity.client.searchContractsByTrait(
       POOL_TRAIT,
-      limit
+      50 // limit
     );
-
+    
     // Filter out blacklisted contracts
     const filteredContracts = contracts.filter(
       (contract) => !blacklist.includes(contract.contract_id)
     );
 
     // Process contracts in parallel batches
-    const pools: LPToken[] = [];
-    const parallelRequests = this.config.parallelRequests
+    const vaults: Vault[] = [];
+    const parallelRequests = Dexterity.config.parallelRequests;
 
     for (let i = 0; i < filteredContracts.length; i += parallelRequests) {
       const batch = filteredContracts.slice(i, i + parallelRequests);
-      const poolPromises = batch.map((contract) =>
-        this.processPoolContract(contract.contract_id)
+      const vaultPromises = batch.map((contract) =>
+        Vault.build(contract.contract_id)
       );
 
-      const results = await Promise.all(poolPromises);
-      pools.push(...(results.filter((pool) => pool !== null) as LPToken[]));
+      const results = await Promise.all(vaultPromises);
+      vaults.push(...(results.filter((vault) => vault !== null) as Vault[]));
     }
 
-    const vaults = pools.map((pool) => new Vault(pool));
-    this.router.loadVaults(vaults);
-    return pools;
+    if (load) this.router.loadVaults(vaults);
+    return serialize ? vaults.map(v => v.toLPToken()) : vaults;
   }
-
-  static async processPoolContract(
-    contractId: ContractId
-  ): Promise<LPToken | null> {
-    try {
-      const metadata = await this.client.getTokenMetadata(contractId);
-      if (!metadata.properties) {
-        throw new Error("Invalid pool metadata");
-      }
-      const supply = await this.client.getTotalSupply(contractId);
-      const [token0, token1] = await Promise.all([
-        this.getTokenInfo(metadata.properties.tokenAContract),
-        this.getTokenInfo(metadata.properties.tokenBContract),
-      ]);
-      const [reserve0, reserve1] = await this.getPoolReserves(
-        contractId,
-        metadata.properties.tokenAContract,
-        metadata.properties.tokenBContract
-      );
-      const fee = Math.floor(
-        (metadata.properties.lpRebatePercent / 100) * 1000000
-      );
-      const pool = {
-        contractId,
-        name: metadata.name,
-        symbol: metadata.symbol,
-        decimals: metadata.decimals,
-        identifier: metadata.identifier,
-        description: metadata.description,
-        image: metadata.image,
-        fee,
-        liquidity: [
-          { ...token0, reserves: reserve0 },
-          { ...token1, reserves: reserve1 },
-        ],
-        supply,
-      };
-      return pool;
-    } catch (error) {
-      console.error(`\nError processing pool contract: ${contractId}`);
-      return null;
-    }
-  }
-
+  
   /**
    * Token Information Methods
    */
@@ -154,21 +110,6 @@ export class Dexterity {
     });
   }
 
-  static async getPoolReserves(
-    poolContract: string,
-    token0Contract: string,
-    token1Contract: string
-  ): Promise<[number, number]> {
-    return Promise.all([
-      token0Contract === ".stx"
-        ? this.client.getStxBalance(poolContract)
-        : this.client.getTokenBalance(token0Contract, poolContract),
-      token1Contract === ".stx"
-        ? this.client.getStxBalance(poolContract)
-        : this.client.getTokenBalance(token1Contract, poolContract),
-    ]);
-  }
-
   /**
    * Core trading methods
    */
@@ -207,6 +148,9 @@ export class Dexterity {
     return txResult;
   }
 
+  /**
+   * Get a quote for a swap between two tokens
+   */
   static async getQuote(
     tokenInContract: ContractId,
     tokenOutContract: ContractId,
@@ -238,11 +182,11 @@ export class Dexterity {
    * Vault management methods
    */
   static getVault(vaultId: string): Vault | undefined {
-    return this.router.vaults.get(vaultId);
+    return this.router.edges.get(vaultId);
   }
 
-  static getAllVaults(): Map<string, Vault> {
-    return this.router.vaults;
+  static getVaults(): Vault[] {
+    return this.router.getVaults();
   }
 
   static getVaultsForToken(tokenId: string): Map<string, Vault> {
@@ -256,7 +200,7 @@ export class Dexterity {
     // Use a Map to deduplicate tokens
     const tokens = new Map<string, Token>();
     // Collect unique tokens from all liquidity pairs
-    for (const pool of this.router.vaults.values()) {
+    for (const pool of this.router.edges.values()) {
       const liquidity = pool.getTokens();
       for (const token of liquidity) {
         if (token.contractId) {

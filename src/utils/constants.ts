@@ -32,19 +32,6 @@ export const PRECISION = {
   MAX_AMOUNT: 1_000_000_000_000, // Maximum amount that can be processed
 } as const;
 
-export const OPERATION_TYPES = {
-  SWAP_A_TO_B: 0x00,
-  SWAP_B_TO_A: 0x01,
-  ADD_LIQUIDITY: 0x02,
-  REMOVE_LIQUIDITY: 0x03,
-} as const;
-
-export const FEE_TYPES = {
-  REDUCE_INPUT: 0x00,
-  REDUCE_OUTPUT: 0x01,
-  BURN_ENERGY: 0x02,
-} as const;
-
 export const CONTRACT_DEFAULTS = {
   // ABI identifiers
   TRAITS: {
