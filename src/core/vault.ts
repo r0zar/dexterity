@@ -34,13 +34,29 @@ export class Vault {
   public tokenB: Liquidity;
   public supply: number = 0;
 
-  constructor(contractId: ContractId) {
-    this.contractId = contractId;
-    [this.contractAddress, this.contractName] = contractId.split(".");
+  constructor(lpToken: Partial<LPToken> & { contractId: ContractId }) {
+    this.contractId = lpToken.contractId;
+    [this.contractAddress, this.contractName] = this.contractId.split(".");
     
     // Initialize empty tokens
     this.tokenA = this.createLiquidity();
     this.tokenB = this.createLiquidity();
+
+    // Populate available fields
+    this.name = lpToken.name ?? this.name;
+    this.symbol = lpToken.symbol ?? this.symbol;
+    this.decimals = lpToken.decimals ?? this.decimals;
+    this.identifier = lpToken.identifier ?? this.identifier;
+    this.description = lpToken.description ?? this.description;
+    this.image = lpToken.image ?? this.image;
+    this.fee = lpToken.fee ?? this.fee;
+    this.supply = lpToken.supply ?? this.supply;
+
+    // Update liquidity tokens if available
+    if (lpToken.liquidity) {
+      this.tokenA = { ...this.tokenA, ...lpToken.liquidity[0] };
+      this.tokenB = { ...this.tokenB, ...lpToken.liquidity[1] };
+    }
   }
 
   private createLiquidity(): Liquidity {
@@ -59,7 +75,7 @@ export class Vault {
    */
   static async build(contractId: ContractId): Promise<Vault | null> {
     try {
-      const vault = new Vault(contractId);
+      const vault = new Vault({contractId});
       await vault.fetchMetadata();
       await vault.fetchPoolState();
       return vault;
