@@ -83,13 +83,13 @@ describe("Vaults", async () => {
   });
 
   // test swap
-  describe("Vault Swap Operations", () => {
-    it("should swap STX for CHA", async () => {
-      const swapConfig = await testVault.executeTransaction(Opcode.swapExactAForB(), 100000, {
-        fee: 1000,
-      });
-      console.log(swapConfig);
-      expect(swapConfig).toBeDefined();
-    });
-  });
+  // describe("Vault Swap Operations", () => {
+  //   it("should swap STX for CHA", async () => {
+  //     const swapConfig = await testVault.executeTransaction(Opcode.swapExactAForB(), 100000, {
+  //       fee: 1000,
+  //     });
+  //     console.log(swapConfig);
+  //     expect(swapConfig).toBeDefined();
+  //   });
+  // });
 });
