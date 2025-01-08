@@ -28,6 +28,7 @@ export class Vault {
   public description: string = "";
   public image: string = "";
   public fee: number = 0;
+  public externalPoolId?: string = "";
   
   // Pool state
   public tokenA: Liquidity;
@@ -102,6 +103,7 @@ export class Vault {
     this.description = metadata.description || "";
     this.image = metadata.image || "";
     this.fee = Math.floor((metadata.properties.lpRebatePercent / 100) * 1000000);
+    this.externalPoolId = metadata.properties.externalPoolId;
 
     // Fetch and set token info
     const [token0, token1] = await Promise.all([
@@ -262,18 +264,19 @@ export class Vault {
       if (txConfig instanceof Error) throw txConfig;
 
       if (Dexterity.config.mode === "server") {
+        console.log(txConfig)
         // Server-side: create and broadcast transaction
         const transaction = await makeContractCall({
           ...txConfig,
           senderKey: Dexterity.config.privateKey,
-          fee: options.fee || 10000,
+          fee: options.fee || 1000,
         });
         return broadcastTransaction({ transaction });
       } else {
         // Client-side: use wallet to sign and broadcast
         await openContractCall({
           ...txConfig,
-          fee: options.fee || 10000,
+          fee: options.fee || 1000,
         });
       }
     } catch (error) {
@@ -295,7 +298,16 @@ export class Vault {
     amountIn: number,
     amountOut: number
   ): PostCondition[] {
-    // If you want slippage logic here, can do so. For now, a direct eq.
+    // For wrapper contract, use external pool ID if available
+    if (this.externalPoolId) {
+      const minAmountOut = Math.floor(amountOut * 0.99); // 1% error margin
+      return [
+        this.createPostCondition(tokenIn, amountIn, Dexterity.config.stxAddress, 'eq'),
+        this.createPostCondition(tokenOut, minAmountOut, this.externalPoolId, 'gte'),
+      ];
+    }
+    
+    // Default behavior for non-wrapper contracts
     return [
       this.createPostCondition(tokenIn, amountIn, Dexterity.config.stxAddress),
       this.createPostCondition(tokenOut, amountOut, this.contractId),
@@ -359,13 +371,16 @@ export class Vault {
   private createPostCondition(
     token: Token,
     amount: number,
-    sender: string
+    sender: string,
+    condition: 'eq' | 'gte' = 'eq'
   ): PostCondition {
     if (token.contractId === ".stx") {
-      return Pc.principal(sender).willSendEq(amount).ustx();
+      return condition === 'eq' 
+        ? Pc.principal(sender).willSendEq(amount).ustx()
+        : Pc.principal(sender).willSendGte(amount).ustx();
     }
-    return Pc.principal(sender)
-      .willSendEq(amount)
-      .ft(token.contractId, token.identifier);
+    return condition === 'eq'
+      ? Pc.principal(sender).willSendEq(amount).ft(token.contractId, token.identifier)
+      : Pc.principal(sender).willSendGte(amount).ft(token.contractId, token.identifier);
   }
 }

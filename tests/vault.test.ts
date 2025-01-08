@@ -10,7 +10,7 @@ describe("Vaults", async () => {
   beforeAll(async () => {
     Dexterity.configure({debug: true});
     // Initialize with a known test pool
-    const cvltVault = await Vault.build("SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.perseverantia-omnia-vincit");
+    const cvltVault = await Vault.build("SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.stx-cha-vault-wrapper-alex");
     if (!cvltVault) {
       throw new Error("Failed to initialize test vault");
     }
@@ -79,6 +79,17 @@ describe("Vaults", async () => {
       expect(lpToken).toHaveProperty("liquidity");
       expect(lpToken.liquidity).toHaveLength(2);
       expect(lpToken).toHaveProperty("fee");
+    });
+  });
+
+  // test swap
+  describe("Vault Swap Operations", () => {
+    it("should swap STX for CHA", async () => {
+      const swapConfig = await testVault.executeTransaction(Opcode.swapExactAForB(), 100000, {
+        fee: 1000,
+      });
+      console.log(swapConfig);
+      expect(swapConfig).toBeDefined();
     });
   });
 });

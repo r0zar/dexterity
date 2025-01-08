@@ -97,6 +97,7 @@ export interface TokenMetadata {
     tokenAContract: string;
     tokenBContract: string;
     lpRebatePercent: number;
+    externalPoolId?: string;
   };
 }
 
