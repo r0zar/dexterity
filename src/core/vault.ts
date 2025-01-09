@@ -28,7 +28,7 @@ export class Vault {
   public description: string = "";
   public image: string = "";
   public fee: number = 0;
-  public externalPoolId?: string = "";
+  public externalPoolId: string = "";
   
   // Pool state
   public tokenA: Liquidity;
@@ -104,7 +104,7 @@ export class Vault {
     this.description = metadata.description || "";
     this.image = metadata.image || "";
     this.fee = Math.floor((metadata.properties.lpRebatePercent / 100) * 1000000);
-    this.externalPoolId = metadata.properties.externalPoolId;
+    this.externalPoolId = metadata.properties.externalPoolId || "";
 
     // Fetch and set token info
     const [token0, token1] = await Promise.all([
