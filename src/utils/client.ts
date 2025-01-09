@@ -211,7 +211,12 @@ export class StacksClient {
       },
     });
 
-    return response.data?.results || [];
+    const omitList = [
+      'SP39859AD7RQ6NYK00EJ8HN1DWE40C576FBDGHPA0.chdollar', 
+      'SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.abtc-dog-vault-wrapper-alex'
+    ]
+
+    return response.data?.results.filter((contract: any) => !omitList.includes(contract.contract_id)) || [];
   }
 
   /**

@@ -26,7 +26,7 @@ export class ContractGenerator {
         codeBody: contractSource,
         network: Dexterity.config.network,
         postConditionMode: PostConditionMode.Allow,
-        fee: 400000,
+        fee: 300000,
         clarityVersion: 3,
       });
       return broadcastTransaction({ transaction });
@@ -37,7 +37,7 @@ export class ContractGenerator {
         codeBody: contractSource,
         postConditionMode: PostConditionMode.Allow,
         network: Dexterity.config.network,
-        fee: 400000,
+        fee: 300000,
         clarityVersion: 3,
       });
     }
@@ -179,6 +179,7 @@ export class ContractGenerator {
         (if (is-eq operation OP_SWAP_B_TO_A) (ok (get-swap-quote amount opcode))
         (if (is-eq operation OP_ADD_LIQUIDITY) (ok (get-liquidity-quote amount))
         (if (is-eq operation OP_REMOVE_LIQUIDITY) (ok (get-liquidity-quote amount))
+        (if (is-eq operation OP_LOOKUP_RESERVES) (ok (get-reserves-quote))
         ERR_INVALID_OPERATION))))))
 
 ;; --- Core Functions ---
@@ -307,6 +308,16 @@ export class ContractGenerator {
           dx: (if (> k u0) (/ (* amount (get a reserves)) k) amount),
           dy: (if (> k u0) (/ (* amount (get b reserves)) k) amount),
           dk: amount
+        }))
+
+(define-read-only (get-reserves-quote)
+    (let (
+        (reserves (get-reserves))
+        (supply (ft-get-supply ${lpTokenSymbol})))
+        {
+          dx: (get a reserves),
+          dy: (get b reserves),
+          dk: supply
         }))
 
 ;; --- Initialization ---
