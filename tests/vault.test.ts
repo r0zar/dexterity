@@ -82,7 +82,6 @@ describe("Vaults", async () => {
     });
   });
 
-  // test swap
   // describe("Vault Swap Operations", () => {
   //   it("should swap STX for CHA", async () => {
   //     const swapConfig = await testVault.executeTransaction(Opcode.swapExactAForB(), 100000, {

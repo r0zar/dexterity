@@ -125,7 +125,9 @@ export class Router {
     this.nodes.clear();
 
     for (const vault of vaults) {
+      // Add to edges map (allow duplicates)
       this.edges.set(vault.contractId, vault);
+      
       const [token0, token1] = vault.getTokens();
       const [reserve0, reserve1] = vault.getReserves();
 
@@ -146,15 +148,19 @@ export class Router {
       const node0 = this.nodes.get(token0.contractId)!;
       const node1 = this.nodes.get(token1.contractId)!;
 
-      // Add edges in both directions
-      node0.edges.set(token1.contractId, {
+      // Create unique edge keys that include the vault ID
+      const edge0Key = `${token1.contractId}-${vault.contractId}`;
+      const edge1Key = `${token0.contractId}-${vault.contractId}`;
+
+      // Add edges in both directions with unique keys
+      node0.edges.set(edge0Key, {
         vault,
         target: token1,
         liquidity: reserve1,
         fee: vault.getFee(),
       });
 
-      node1.edges.set(token0.contractId, {
+      node1.edges.set(edge1Key, {
         vault,
         target: token0,
         liquidity: reserve0,
@@ -241,21 +247,35 @@ export class Router {
 
     // Continue exploring if under max hops
     if (newPath.length <= Dexterity.config.maxHops) {
-      for (const [targetId, edge] of node.edges) {
-        const vaultId = edge.vault.contractId;
-        
-        // Skip if we've visited this vault before
-        if (!visitedVaults.has(vaultId)) {
-          const newVisitedVaults = new Set(visitedVaults);
-          newVisitedVaults.add(vaultId);
+      // Group edges by target token
+      const edgesByTarget = new Map<string, GraphEdge[]>();
+      
+      for (const [edgeKey, edge] of node.edges) {
+        const targetId = edge.target.contractId;
+        if (!edgesByTarget.has(targetId)) {
+          edgesByTarget.set(targetId, []);
+        }
+        edgesByTarget.get(targetId)!.push(edge);
+      }
+
+      // Explore each target token's edges
+      for (const [targetId, edges] of edgesByTarget) {
+        for (const edge of edges) {
+          const vaultId = edge.vault.contractId;
           
-          const nested = this.findAllPaths(
-            targetId,
-            toId,
-            newPath,
-            newVisitedVaults
-          );
-          results.push(...nested);
+          // Skip if we've visited this vault before
+          if (!visitedVaults.has(vaultId)) {
+            const newVisitedVaults = new Set(visitedVaults);
+            newVisitedVaults.add(vaultId);
+            
+            const nested = this.findAllPaths(
+              targetId,
+              toId,
+              newPath,
+              newVisitedVaults
+            );
+            results.push(...nested);
+          }
         }
       }
     }
@@ -281,40 +301,50 @@ export class Router {
         const node = this.nodes.get(tokenIn.contractId);
         if (!node) throw new Error(`Node not found: ${tokenIn.contractId}`);
 
-        const edge = node.edges.get(tokenOut.contractId);
-        if (!edge) throw new Error(`Edge not found: ${tokenOut.contractId}`);
+        // Get all edges between these tokens
+        const edges = Array.from(node.edges.values())
+          .filter(edge => edge.target.contractId === tokenOut.contractId);
 
-        // Build an opcode for this direction
-        const [tokenA] = edge.vault.getTokens();
-        const isAtoB = tokenIn.contractId === tokenA.contractId;
-        const opcode = new Opcode().setOperation(isAtoB ? 0x00 : 0x01);
+        if (edges.length === 0) {
+          throw new Error(`No edges found: ${tokenIn.contractId} -> ${tokenOut.contractId}`);
+        }
 
-        debugUtils.incrementQuotesRequested();
-        const quote = await edge.vault.quote(currentAmount, opcode);
-        if (quote instanceof Error) throw quote;
+        // Get quotes from all edges
+        const edgeQuotes = await Promise.all(edges.map(async edge => {
+          const [tokenA] = edge.vault.getTokens();
+          const isAtoB = tokenIn.contractId === tokenA.contractId;
+          const opcode = new Opcode().setOperation(isAtoB ? 0x00 : 0x01);
 
-        totalFees += quote.fee;
+          debugUtils.incrementQuotesRequested();
+          const quote = await edge.vault.quote(currentAmount, opcode);
+          return { edge, opcode, quote };
+        }));
 
-        hopDetails.push({
-          tokenIn: tokenIn.contractId,
-          tokenOut: tokenOut.contractId,
-          vault: edge.vault,
-          amountIn: currentAmount,
-          amountOut: quote.amountOut,
+        // Find best quote
+        const bestEdgeQuote = edgeQuotes.reduce((best, current) => {
+          if (current.quote instanceof Error) return best;
+          if (best.quote instanceof Error) return current;
+          return current.quote.amountOut > best.quote.amountOut ? current : best;
         });
 
+        if (bestEdgeQuote.quote instanceof Error) {
+          throw bestEdgeQuote.quote;
+        }
+
+        totalFees += bestEdgeQuote.quote.fee;
+
         hops.push({
-          vault: edge.vault,
-          opcode, // store entire opcode
+          vault: bestEdgeQuote.edge.vault,
+          opcode: bestEdgeQuote.opcode,
           tokenIn,
           tokenOut,
           quote: {
             amountIn: currentAmount,
-            amountOut: quote.amountOut,
+            amountOut: bestEdgeQuote.quote.amountOut,
           },
         });
 
-        currentAmount = quote.amountOut;
+        currentAmount = bestEdgeQuote.quote.amountOut;
       }
 
       const route: Route = {
