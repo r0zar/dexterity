@@ -52,6 +52,7 @@ export class Vault {
     this.image = lpToken.image ?? this.image;
     this.fee = lpToken.fee ?? this.fee;
     this.supply = lpToken.supply ?? this.supply;
+    this.externalPoolId = lpToken.externalPoolId ?? this.externalPoolId;
 
     // Update liquidity tokens if available
     if (lpToken.liquidity) {
@@ -202,7 +203,8 @@ export class Vault {
         { ...this.tokenA },
         { ...this.tokenB }
       ],
-      supply: this.supply
+      supply: this.supply,
+      externalPoolId: this.externalPoolId as ContractId,
     };
   }
 

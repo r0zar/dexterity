@@ -25,6 +25,7 @@ export interface Liquidity extends Token {
 
 export interface LPToken extends Token {
   liquidity: Liquidity[];
+  externalPoolId: ContractId;
   fee: number;
 }
 
