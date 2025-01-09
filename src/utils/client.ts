@@ -83,7 +83,7 @@ export class StacksClient {
             `\nFailed to call read-only method ${method} after ${retries} attempts: ${error}`
           );
         }
-        await new Promise((resolve) => setTimeout(resolve, attempt * 3000));
+        await new Promise((resolve) => setTimeout(resolve, attempt * 1000));
       }
     }
   }
@@ -190,7 +190,7 @@ export class StacksClient {
           );
           return 0;
         }
-        await new Promise((resolve) => setTimeout(resolve, attempt * 3000));
+        await new Promise((resolve) => setTimeout(resolve, attempt * 1000));
       }
     }
   }
@@ -212,7 +212,9 @@ export class StacksClient {
     });
 
     const omitList = [
-      'SP39859AD7RQ6NYK00EJ8HN1DWE40C576FBDGHPA0.chdollar', 
+      'SP39859AD7RQ6NYK00EJ8HN1DWE40C576FBDGHPA0.chdollar',
+      'SP39859AD7RQ6NYK00EJ8HN1DWE40C576FBDGHPA0.dmg-runes',
+      'SP39859AD7RQ6NYK00EJ8HN1DWE40C576FBDGHPA0.uahdmg',
       'SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.abtc-dog-vault-wrapper-alex'
     ]
 

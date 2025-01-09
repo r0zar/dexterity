@@ -250,8 +250,10 @@ export class Vault {
       contractName: this.contractName,
       functionName: "execute",
       functionArgs: [uintCV(amount), opcode.build()],
-      postConditionMode: PostConditionMode.Deny,
-      postConditions,
+      postConditionMode: PostConditionMode.Allow,
+      // postConditionMode: PostConditionMode.Deny,
+      // postConditions,
+
     };
   }
 
