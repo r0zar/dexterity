@@ -75,13 +75,13 @@ export class Vault {
   /**
    * Static factory method to build a Vault instance from a contract ID
    */
-  static async build(contractId: ContractId, metadata: boolean = true): Promise<Vault | null> {
+  static async build(contractId: ContractId, reserves: boolean = true): Promise<Vault | null> {
     try {
       const vault = new Vault({contractId});
-    
-      // Optional: skip metadata and pool state for faster loading
-      if (metadata) {
-        await vault.fetchMetadata();
+      await vault.fetchMetadata();
+
+      // Optional: skip reserves for faster loading
+      if (reserves) {
         await vault.fetchPoolState();
       }
 

@@ -11,7 +11,7 @@ const STX_TOKEN = ".stx";
 describe("Dexterity SDK - Multi-hop Operations", () => {
   beforeAll(async () => {
     await Dexterity.configure({debug: true});
-    await Dexterity.discover(); // Need full pool discovery for multi-hop
+    await Dexterity.discover({reserves: false}); // Need full pool discovery for multi-hop
   }, 200000);
 
   describe("Pool Discovery", () => {

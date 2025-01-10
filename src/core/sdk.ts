@@ -34,7 +34,7 @@ export class Dexterity {
   /**
    * Discover vaults and load them into the router
    */
-  static async discover({blacklist = [], serialize = false, load = true, metadata = true}: {blacklist?: ContractId[], serialize?: boolean, load?: boolean, metadata?: boolean} = {}): Promise<Partial<Vault>[]> {
+  static async discover({blacklist = [], serialize = false, load = true, reserves = true}: {blacklist?: ContractId[], serialize?: boolean, load?: boolean, reserves?: boolean} = {}): Promise<Partial<Vault>[]> {
     const contracts = await Dexterity.client.searchContractsByTrait(
       POOL_TRAIT,
       50 // limit
@@ -52,7 +52,7 @@ export class Dexterity {
     for (let i = 0; i < filteredContracts.length; i += parallelRequests) {
       const batch = filteredContracts.slice(i, i + parallelRequests);
       const vaultPromises = batch.map((contract) =>
-        Vault.build(contract.contract_id, metadata)
+        Vault.build(contract.contract_id, reserves)
       );
 
       const results = await Promise.all(vaultPromises);
