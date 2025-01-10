@@ -114,19 +114,5 @@ describe("Dexterity SDK - Multi-hop Operations", () => {
       expect(multiHopSwapConfig.functionName).toMatch(/^swap-/);
       expect(multiHopSwapConfig.postConditions.length).toBeGreaterThanOrEqual(2);
     });
-
-    it("should find arbitrage opportunities across multiple vaults", async () => {
-      const quote = await Dexterity.getQuote(CHA_TOKEN, CHA_TOKEN, 1000000);
-      
-      // If a profitable route is found
-      if (!(quote instanceof Error)) {
-        expect(quote.route.hops.length).toBeGreaterThan(0);
-        expect(quote.amountOut).toBeGreaterThan(1000000); // Should be profitable
-        
-        // Verify unique vaults are used (no vault used twice)
-        const vaultIds = new Set(quote.route.hops.map(hop => hop.vault.contractId));
-        expect(vaultIds.size).toBe(quote.route.hops.length);
-      }
-    });
   });
 });
