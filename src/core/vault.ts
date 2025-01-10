@@ -75,11 +75,16 @@ export class Vault {
   /**
    * Static factory method to build a Vault instance from a contract ID
    */
-  static async build(contractId: ContractId): Promise<Vault | null> {
+  static async build(contractId: ContractId, metadata: boolean = false): Promise<Vault | null> {
     try {
       const vault = new Vault({contractId});
-      await vault.fetchMetadata();
-      await vault.fetchPoolState();
+    
+      // Optional: skip metadata and pool state for faster loading
+      if (metadata) {
+        await vault.fetchMetadata();
+        await vault.fetchPoolState();
+      }
+
       return vault;
     } catch (error) {
       console.error(`Error building vault for ${contractId}:`, error);
@@ -266,7 +271,6 @@ export class Vault {
       if (txConfig instanceof Error) throw txConfig;
 
       if (Dexterity.config.mode === "server") {
-        console.log(txConfig)
         // Server-side: create and broadcast transaction
         const transaction = await makeContractCall({
           ...txConfig,

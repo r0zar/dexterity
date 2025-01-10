@@ -28,7 +28,6 @@ interface GraphEdge {
   vault: Vault;
   target: Token;
   liquidity: number;
-  fee: number;
 }
 
 interface GraphNode {
@@ -157,14 +156,12 @@ export class Router {
         vault,
         target: token1,
         liquidity: reserve1,
-        fee: vault.getFee(),
       });
 
       node1.edges.set(edge1Key, {
         vault,
         target: token0,
         liquidity: reserve0,
-        fee: vault.getFee(),
       });
     }
   }
@@ -287,13 +284,9 @@ export class Router {
     tokens: Token[],
     amount: number
   ): Promise<Route | Error> {
-    const startTime = Date.now();
-    const hopDetails: any[] = [];
-
     try {
       const hops: Hop[] = [];
       let currentAmount = amount;
-      let totalFees = 0;
 
       for (let i = 0; i < tokens.length - 1; i++) {
         const tokenIn = tokens[i];
@@ -330,8 +323,6 @@ export class Router {
         if (bestEdgeQuote.quote instanceof Error) {
           throw bestEdgeQuote.quote;
         }
-
-        totalFees += bestEdgeQuote.quote.fee;
 
         hops.push({
           vault: bestEdgeQuote.edge.vault,
