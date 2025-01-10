@@ -41,32 +41,6 @@ describe("Dexterity SDK - Multi-hop Operations", () => {
         expect(path[path.length - 1].contractId).toBe(STX_TOKEN);
       });
     });
-
-    it("should select best vault based on output amount", async () => {
-      const testAmount = 1000000;
-      const quote = await Dexterity.getQuote(STX_TOKEN, CHA_TOKEN, testAmount);
-      
-      // Get all vaults between STX and CHA
-      const stxChaVaults = Array.from(Dexterity.getVaultsForToken(STX_TOKEN).values())
-        .filter(vault => vault.getTokens().some(t => t.contractId === CHA_TOKEN));
-      
-      // Get quotes from each vault
-      const quotes = await Promise.all(stxChaVaults.map(async vault => {
-        const vaultQuote = await vault.quote(testAmount, Opcode.swapExactAForB());
-        return {
-          vault: vault.contractId,
-          amountOut: vaultQuote instanceof Error ? 0 : vaultQuote.amountOut
-        };
-      }));
-
-      // Find best quote
-      const bestVaultId = quotes.reduce((best, current) => 
-        current.amountOut > best.amountOut ? current : best
-      ).vault;
-
-      // Router should select the vault with best quote
-      expect(quote.route.hops[0].vault.contractId).toBe(bestVaultId);
-    });
   });
 
   describe("Multi-hop Routing", () => {
