@@ -369,6 +369,26 @@ export class Vault {
           amount,
           quote.amountOut
         );
+      case Opcode.types.ADD_LIQUIDITY:
+        return [
+          // Token A input
+          this.createPostCondition(this.tokenA, quote.amountIn, Dexterity.config.stxAddress),
+          // Token B input
+          this.createPostCondition(this.tokenB, quote.amountOut, Dexterity.config.stxAddress),
+        ];
+      case Opcode.types.REMOVE_LIQUIDITY:
+        return [
+          // LP tokens input
+          this.createPostCondition(
+            { ...this, contractId: this.contractId },
+            amount,
+            Dexterity.config.stxAddress
+          ),
+          // Token A output
+          this.createPostCondition(this.tokenA, quote.amountIn, this.contractId, 'gte'),
+          // Token B output
+          this.createPostCondition(this.tokenB, quote.amountOut, this.contractId, 'gte')
+        ];
       default:
         throw new Error(`Unsupported operation: ${operation}`);
     }
