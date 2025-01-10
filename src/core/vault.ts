@@ -75,7 +75,7 @@ export class Vault {
   /**
    * Static factory method to build a Vault instance from a contract ID
    */
-  static async build(contractId: ContractId, metadata: boolean = false): Promise<Vault | null> {
+  static async build(contractId: ContractId, metadata: boolean = true): Promise<Vault | null> {
     try {
       const vault = new Vault({contractId});
     
