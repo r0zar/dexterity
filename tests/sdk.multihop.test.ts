@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { Dexterity } from "../src/core/sdk";
 import { Router } from "../src/core/router";
-import { Opcode } from "../src/core/opcode";
 
 const DMG_TOKEN = "SP2D5BGGJ956A635JG7CJQ59FTRFRB0893514EZPJ.dme000-governance-token";
 const SKULL_TOKEN = "SP3BRXZ9Y7P5YP28PSR8YJT39RT51ZZBSECTCADGR.skullcoin-stxcity";
@@ -17,7 +16,6 @@ describe("Dexterity SDK - Multi-hop Operations", () => {
   describe("Pool Discovery", () => {
     it("should discover multiple pools for same token pairs", async () => {
       const stxVaults = Dexterity.getVaultsForToken(STX_TOKEN);
-      const chaVaults = Dexterity.getVaultsForToken(CHA_TOKEN);
       
       // Find vaults that have both tokens
       const commonVaults = Array.from(stxVaults.values())

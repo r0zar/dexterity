@@ -5,16 +5,11 @@ import { Opcode } from "../src/core/opcode";
 import { Quote } from "../src/types";
 
 describe("Vaults", async () => {
-  let testVault: Vault;
-
+  let testVault;
   beforeAll(async () => {
     Dexterity.configure({debug: true});
     // Initialize with a known test pool
-    const cvltVault = await Vault.build("SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.stx-cha-vault-wrapper-alex");
-    if (!cvltVault) {
-      throw new Error("Failed to initialize test vault");
-    }
-    testVault = cvltVault;
+    testVault = await Vault.build("SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.stx-cha-vault-wrapper-alex");
   });
 
   describe("Pool State", () => {
@@ -82,13 +77,91 @@ describe("Vaults", async () => {
     });
   });
 
-  // describe("Vault Swap Operations", () => {
-  //   it("should swap STX for CHA", async () => {
-  //     const swapConfig = await testVault.executeTransaction(Opcode.swapExactAForB(), 100000, {
-  //       fee: 1000,
-  //     });
-  //     console.log(swapConfig);
-  //     expect(swapConfig).toBeDefined();
-  //   });
-  // });
+  describe("Contract Generation", () => {
+    let baseVault: Vault;
+  
+    beforeAll(async () => {
+      baseVault = await Vault.build("SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.pontis-powerline");
+    });
+  
+    it("should generate valid contract with basic configuration", () => {
+      const contract = baseVault.generateContractCode();
+      console.log(contract);
+      
+      // Basic structure checks
+      expect(contract).toContain("(impl-trait 'SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.charisma-traits-v1.sip010-ft-trait)");
+      expect(contract).toContain("(impl-trait 'SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.dexterity-traits-v0.liquidity-pool-trait)");
+      
+      // Check token definitions
+      expect(contract).toContain(`(define-fungible-token ${baseVault.symbol})`);
+      expect(contract).toContain(`(define-constant LP_REBATE u${baseVault.fee})`);
+    });
+  
+    it("should handle STX token pairs correctly", async () => {
+      const stxVault = new Vault({
+        contractId: "SP000.test-vault",
+        liquidity: [
+          { contractId: ".stx", symbol: "STX", decimals: 6, reserves: 1000, name: "STX", identifier: "stx" },
+          { contractId: "SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.charisma-token", symbol: "TKA", decimals: 6, reserves: 1000, name: "Token A", identifier: "token-a" }
+        ],
+        name: "Test Vault",
+        symbol: "TEST",
+        fee: 3000
+      });
+  
+      const contract = stxVault.generateContractCode();
+      
+      // Check STX-specific transfer syntax
+      expect(contract).toContain("(try! (stx-transfer?");
+      expect(contract).toContain("(stx-get-balance");
+    });
+  
+    it("should validate token names and symbols for Clarity compatibility", () => {
+      const invalidVault = new Vault({
+        contractId: "SP000.test-vault",
+        name: "k",
+        symbol: "T&I",
+        fee: 3000,
+        liquidity: [
+          { contractId: "SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.charisma-token", symbol: "TK-A", decimals: 6, reserves: 1000, name: "Token A", identifier: "a" },
+          { contractId: "SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.hooter-the-owl", symbol: "TK-B", decimals: 6, reserves: 1000, name: "Token B", identifier: "b" }
+        ]
+      });
+  
+      expect(() => invalidVault.generateContractCode()).toThrow();
+    });
+  
+    it("should validate fee ranges", () => {
+      const invalidFeeVault = new Vault({
+        contractId: "SP000.test-vault",
+        name: "Invalid Fee",
+        symbol: "INVF",
+        fee: 1000001, // Greater than 100%
+        liquidity: [
+          { contractId: "SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.charisma-token", symbol: "TKA", decimals: 6, reserves: 1000, name: "Token A", identifier: "a" },
+          { contractId: "SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.hooter-the-owl", symbol: "TKB", decimals: 6, reserves: 1000, name: "Token B", identifier: "b" }
+        ]
+      });
+  
+      expect(() => invalidFeeVault.generateContractCode()).toThrow();
+    });
+  
+    it("should handle unbalanced initial liquidity correctly", () => {
+      const unbalancedVault = new Vault({
+        contractId: "SP000.test-vault",
+        name: "Unbalanced",
+        symbol: "UNBL",
+        fee: 3000,
+        liquidity: [
+          { contractId: "SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.charisma-token", symbol: "TKA", decimals: 6, reserves: 1000, name: "Token A", identifier: "a" },
+          { contractId: "SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.hooter-the-owl", symbol: "TKB", decimals: 6, reserves: 2000, name: "Token B", identifier: "b" }
+        ]
+      });
+  
+      const contract = unbalancedVault.generateContractCode();
+      
+      // Should handle additional token transfer for imbalance
+      expect(contract).toContain("(try! (contract-call? 'SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.hooter-the-owl transfer u1000");
+    });
+  });
 });

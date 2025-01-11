@@ -7,13 +7,15 @@ import {
   TxBroadcastResult,
   makeContractCall,
   broadcastTransaction,
+  makeContractDeploy,
 } from "@stacks/transactions";
 import { Opcode } from "./opcode";
 import { Dexterity } from "./sdk";
 import { ErrorUtils } from "../utils";
 import { ERROR_CODES } from "../utils/constants";
 import type { LPToken, Quote, Token, Delta, ExecuteOptions, ContractId, TokenMetadata, Liquidity } from "../types";
-import { openContractCall } from "@stacks/connect";
+import { openContractCall, openContractDeploy } from "@stacks/connect";
+import { CodeGen } from "../utils/codegen";
 
 export class Vault {
   public readonly contractAddress: string;
@@ -31,12 +33,13 @@ export class Vault {
   public externalPoolId: string = "";
   
   // Pool state
+  public liquidity: Liquidity[] = [];
   public tokenA: Liquidity;
   public tokenB: Liquidity;
   public supply: number = 0;
 
-  constructor(lpToken: Partial<LPToken> & { contractId: ContractId }) {
-    this.contractId = lpToken.contractId;
+  constructor(config: Partial<LPToken> & { contractId: ContractId }) {
+    this.contractId = config.contractId;
     [this.contractAddress, this.contractName] = this.contractId.split(".");
     
     // Initialize empty tokens
@@ -44,20 +47,21 @@ export class Vault {
     this.tokenB = this.createLiquidity();
 
     // Populate available fields
-    this.name = lpToken.name ?? this.name;
-    this.symbol = lpToken.symbol ?? this.symbol;
-    this.decimals = lpToken.decimals ?? this.decimals;
-    this.identifier = lpToken.identifier ?? this.identifier;
-    this.description = lpToken.description ?? this.description;
-    this.image = lpToken.image ?? this.image;
-    this.fee = lpToken.fee ?? this.fee;
-    this.supply = lpToken.supply ?? this.supply;
-    this.externalPoolId = lpToken.externalPoolId ?? this.externalPoolId;
+    this.name = config.name ?? this.name;
+    this.symbol = config.symbol ?? this.symbol;
+    this.decimals = config.decimals ?? this.decimals;
+    this.identifier = config.identifier ?? this.identifier;
+    this.description = config.description ?? this.description;
+    this.image = config.image ?? this.image;
+    this.fee = config.fee ?? this.fee;
+    this.supply = config.supply ?? this.supply;
+    this.externalPoolId = config.externalPoolId ?? this.externalPoolId;
+    this.liquidity = config.liquidity ?? this.liquidity;
 
     // Update liquidity tokens if available
-    if (lpToken.liquidity) {
-      this.tokenA = { ...this.tokenA, ...lpToken.liquidity[0] };
-      this.tokenB = { ...this.tokenB, ...lpToken.liquidity[1] };
+    if (config.liquidity) {
+      this.tokenA = { ...this.tokenA, ...config.liquidity[0] };
+      this.tokenB = { ...this.tokenB, ...config.liquidity[1] };
     }
   }
 
@@ -75,21 +79,16 @@ export class Vault {
   /**
    * Static factory method to build a Vault instance from a contract ID
    */
-  static async build(contractId: ContractId, reserves: boolean = true): Promise<Vault | null> {
-    try {
-      const vault = new Vault({contractId});
-      await vault.fetchMetadata();
+  static async build(contractId: ContractId, reserves: boolean = true): Promise<Vault> {
+    const vault = new Vault({contractId});
+    await vault.fetchMetadata();
 
-      // Optional: skip reserves for faster loading
-      if (reserves) {
-        await vault.fetchPoolState();
-      }
-
-      return vault;
-    } catch (error) {
-      console.error(`Error building vault for ${contractId}:`, error);
-      return null;
+    // Optional: skip reserves for faster loading
+    if (reserves) {
+      await vault.fetchPoolState();
     }
+
+    return vault;
   }
 
   /**
@@ -266,12 +265,13 @@ export class Vault {
     options: ExecuteOptions
   ): Promise<TxBroadcastResult | void> {
     try {
-      // First build the transaction config
       const txConfig = await this.buildTransaction(opcode, amount);
       if (txConfig instanceof Error) throw txConfig;
-
       if (Dexterity.config.mode === "server") {
         // Server-side: create and broadcast transaction
+        if (!Dexterity.config.privateKey) {
+          throw new Error("Private key is required for server-side contract calling");
+        }
         const transaction = await makeContractCall({
           ...txConfig,
           senderKey: Dexterity.config.privateKey,
@@ -318,6 +318,32 @@ export class Vault {
       this.createPostCondition(tokenIn, amountIn, Dexterity.config.stxAddress),
       this.createPostCondition(tokenOut, amountOut, this.contractId),
     ];
+  }
+  
+  // --------------------
+  //  Contract Deployment
+  // --------------------
+
+  generateContractCode(): string {
+    const deployConfig = CodeGen.generateVault(this.toLPToken());
+    return deployConfig.codeBody;
+  }
+
+  async deployContract(): Promise<TxBroadcastResult | void> {
+    const deployConfig = CodeGen.generateVault(this.toLPToken());
+
+    if (Dexterity.config.mode === "server") {
+      if (!Dexterity.config.privateKey) {
+        throw new Error("Private key is required for server-side deployment");
+      }
+      const transaction = await makeContractDeploy({
+        ...deployConfig,
+        senderKey: Dexterity.config.privateKey,
+      });
+      return broadcastTransaction({ transaction });
+    } else {
+      await openContractDeploy(deployConfig);
+    }
   }
 
   // -----------

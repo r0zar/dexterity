@@ -13,12 +13,10 @@ import type {
 } from "../types";
 import { StacksClient } from "../utils/client";
 import { loadConfig, DEFAULT_SDK_CONFIG } from "../utils/config";
-import { ContractGenerator } from "./generator";
 import { Cache } from "../utils/cache";
 
 export class Dexterity {
   static config = DEFAULT_SDK_CONFIG;
-  static codegen = ContractGenerator;
   static client = StacksClient.getInstance();
   static router = Router;
 
