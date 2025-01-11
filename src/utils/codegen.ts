@@ -68,8 +68,8 @@ export class CodeGen {
       throw new Error("LP rebate must be less than 10000");
     }
     // symbol validation
-    if (!/^[a-zA-Z]+$/.test(config.symbol)) {
-      throw new Error("Symbol must only contain letters");
+    if (!/^[a-zA-Z0-9-]+$/.test(config.symbol)) {
+      throw new Error("Symbol must only contain letters, numbers, and dashes");
     }
     // name validation (must be longer than 3 characters)
     if (config.name.length <= 3) {
