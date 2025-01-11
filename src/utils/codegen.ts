@@ -63,9 +63,9 @@ export class CodeGen {
     if (config.liquidity[0].symbol.length > 8 || config.liquidity[1].symbol.length > 8) {
       throw new Error("Token symbols must be less than 8 characters");
     }
-    // validate lprebate (bps)
-    if (config.fee > 10000) {
-      throw new Error("LP rebate must be less than 10000");
+    // validate lprebate
+    if (config.fee > 100000) {
+      throw new Error("LP rebate must be less than 100000");
     }
     // symbol validation
     if (!/^[a-zA-Z0-9-]+$/.test(config.symbol)) {
