@@ -19,6 +19,7 @@ export class Dexterity {
   static config = DEFAULT_SDK_CONFIG;
   static client = StacksClient.getInstance();
   static router = Router;
+  static vault = Vault;
 
   /**
    * Set SDK configuration
