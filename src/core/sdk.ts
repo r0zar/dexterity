@@ -37,7 +37,6 @@ export class Dexterity {
   static async discover({blacklist = [], serialize = false, load = true, reserves = true}: {blacklist?: ContractId[], serialize?: boolean, load?: boolean, reserves?: boolean} = {}): Promise<Partial<Vault>[]> {
     const contracts = await Dexterity.client.searchContractsByTrait(
       POOL_TRAIT,
-      50 // limit
     );
     
     // Filter out blacklisted contracts
