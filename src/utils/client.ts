@@ -200,16 +200,11 @@ export class StacksClient {
    */
   async searchContractsByTrait(
     trait: any,
-    limit: number = 50
+    limit?: number
   ): Promise<any[]> {
-    const response = await this.client.GET("/extended/v1/contract/by_trait", {
-      params: {
-        query: {
-          trait_abi: JSON.stringify(trait),
-          limit,
-        },
-      },
-    });
+    let allContracts: any[] = [];
+    let offset = 0;
+    let hasMore = true;
 
     const omitList = [
       'SP39859AD7RQ6NYK00EJ8HN1DWE40C576FBDGHPA0.chdollar',
@@ -218,9 +213,43 @@ export class StacksClient {
       'SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.abtc-dog-vault-wrapper-alex',
       'SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.satoshi-nakamoto-liquidity',
       'SP20VRJRCZ3FQG7RE4QSPFPQC24J92TKDXJVHWEAW.phoenix-charismatic'
-    ]
+    ];
 
-    return response.data?.results.filter((contract: any) => !omitList.includes(contract.contract_id)) || [];
+    while (hasMore) {
+      try {
+        const response = await this.client.GET("/extended/v1/contract/by_trait", {
+          params: {
+            query: {
+              trait_abi: JSON.stringify(trait),
+              limit: 50,
+              offset,
+            },
+          },
+        });
+
+        const results = response.data?.results || [];
+        if (results.length === 0) {
+          hasMore = false;
+        } else {
+          const filteredResults = results.filter(
+            (contract: any) => !omitList.includes(contract.contract_id)
+          );
+          allContracts = [...allContracts, ...filteredResults];
+          
+          if (limit && allContracts.length >= limit) {
+            allContracts = allContracts.slice(0, limit);
+            hasMore = false;
+          } else {
+            offset += 50;
+          }
+        }
+      } catch (error) {
+        console.warn(`Error fetching contracts at offset ${offset}:`, error);
+        hasMore = false;
+      }
+    }
+
+    return allContracts;
   }
 
   /**
