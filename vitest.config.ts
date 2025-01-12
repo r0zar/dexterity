@@ -5,6 +5,7 @@ export default defineConfig({
     globals: true,
     environment: "node",
     testTimeout: 30000, // 30 seconds since we're using real network
+    setupFiles: ['./tests/setup.ts'],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],

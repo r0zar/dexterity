@@ -1,5 +1,4 @@
 import { Dexterity } from "../src/core/sdk";
-import { STACKS_MAINNET, STACKS_TESTNET } from "@stacks/network";
 import { describe, it, expect, beforeEach, afterAll } from "vitest";
 
 describe("SDK Configuration", () => {

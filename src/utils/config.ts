@@ -7,6 +7,8 @@ import { homedir } from 'os';
 import { generateWallet, getStxAddress } from "@stacks/wallet-sdk";
 import { Dexterity } from "../core/sdk";
 
+const isNode = typeof window === 'undefined';
+
 // Config file locations in order of precedence
 export const CONFIG_LOCATIONS = [
   '.dexterity.json',
@@ -86,7 +88,7 @@ function loadEnvironmentConfig(): Partial<SDKConfig> {
   return config;
 }
 
-// Simplified config loading
+// Load and validate configuration
 export async function loadConfig(runtimeConfig?: Partial<SDKConfig>): Promise<SDKConfig> {
   const config = {
     ...Dexterity.config,
@@ -95,8 +97,18 @@ export async function loadConfig(runtimeConfig?: Partial<SDKConfig>): Promise<SD
     ...runtimeConfig
   };
 
+  // Set mode based on environment if not explicitly specified
+  if (!runtimeConfig?.mode) {
+    config.mode = isNode ? 'server' : 'client';
+  }
+
   // Validate with Zod
   ConfigSchema.parse(config);
+
+  // Prevent loading @stacks/connect in Node environment
+  if (isNode && config.mode === 'client') {
+    throw new Error('Client mode is not supported in Node.js environment');
+  }
 
   // Handle signer if needed
   if (process.env.SEED_PHRASE) {

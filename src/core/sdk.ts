@@ -5,7 +5,6 @@ import {
   POOL_TRAIT,
 } from "../utils/constants";
 import type {
-  LPToken,
   Token,
   SDKConfig,
   ExecuteOptions,
