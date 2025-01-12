@@ -28,6 +28,7 @@ export const DEFAULT_SDK_CONFIG: SDKConfig = {
   mode: "server",
   stxAddress: "",
   proxy: "https://charisma.rocks/api/v0/proxy",
+  ipfsGateway: "https://ipfs.io/",
   network: 'mainnet',
   defaultSlippage: 0,
   maxHops: 3,

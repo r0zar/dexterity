@@ -115,9 +115,17 @@ export class StacksClient {
       throw new Error(`\nNo token URI found for ${contractId}`);
     }
 
-    const response = await fetch(value);
+    // Handle IPFS URIs
+    let uri = value;
+    if (uri.startsWith('ipfs://')) {
+      const ipfsGateway = Dexterity.config.ipfsGateway || 'https://ipfs.io/';
+      uri = uri.replace('ipfs://', ipfsGateway);
+    }
+
+    const response = await fetch(uri);
+
     if (!response.ok) {
-      throw new Error(`\nFailed to fetch metadata from ${value}`);
+      throw new Error(`\nFailed to fetch metadata from ${uri}`);
     }
 
     return response.json();

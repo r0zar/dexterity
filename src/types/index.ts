@@ -119,6 +119,7 @@ export interface SDKConfig {
   mode: string;
   network: 'mainnet' | 'testnet';
   proxy: string;
+  ipfsGateway: string;
   stxAddress: string;
   defaultSlippage: number;
   maxHops: number;

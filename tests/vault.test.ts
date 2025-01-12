@@ -86,7 +86,6 @@ describe("Vaults", async () => {
   
     it("should generate valid contract with basic configuration", () => {
       const contract = baseVault.generateContractCode();
-      console.log(contract);
       
       // Basic structure checks
       expect(contract).toContain("(impl-trait 'SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.charisma-traits-v1.sip010-ft-trait)");
