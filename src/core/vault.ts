@@ -307,10 +307,19 @@ export class Vault {
     // For wrapper contract, use external pool ID if available
     if (this.externalPoolId) {
       const minAmountOut = Math.floor(amountOut * 0.99); // 1% error margin
-      return [
+      const postConditions = [
         this.createPostCondition(tokenIn, amountIn, Dexterity.config.stxAddress, 'eq'),
         this.createPostCondition(tokenOut, minAmountOut, this.externalPoolId, 'gte'),
       ];
+
+      // Add additional post condition for specific external pool
+      if (this.externalPoolId === 'SP1Y5YSTAHZ88XYK1VPDH24GY0HPX5J4JECTMY4A1.univ2-core') {
+        postConditions.push(
+          this.createPostCondition(tokenIn, 0, this.externalPoolId, 'gte')
+        );
+      }
+
+      return postConditions;
     }
     
     // Default behavior for non-wrapper contracts
