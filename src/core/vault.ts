@@ -266,6 +266,13 @@ export class Vault {
   ): Promise<TxBroadcastResult | void> {
     try {
       const txConfig = await this.buildTransaction(opcode, amount);
+
+      if (options?.disablePostConditions) {
+        console.warn("Post conditions disabled");
+        txConfig.postConditionMode = PostConditionMode.Allow;
+        txConfig.postConditions = []
+      }
+
       if (txConfig instanceof Error) throw txConfig;
       if (Dexterity.config.mode === "server") {
         // Server-side: create and broadcast transaction

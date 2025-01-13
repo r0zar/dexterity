@@ -91,6 +91,13 @@ export class Router {
     try {
       // First build the transaction config
       const txConfig = this.buildRouterTransaction(route, amount);
+
+      if (options?.disablePostConditions) {
+        console.warn("Post conditions disabled");
+        txConfig.postConditionMode = PostConditionMode.Allow;
+        txConfig.postConditions = []
+      }
+
       if (Dexterity.config.mode === "server") {
         // Server-side: create and broadcast transaction
         const transaction = await makeContractCall({

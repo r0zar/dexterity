@@ -141,8 +141,10 @@ export interface ContractParams {
 }
 
 export interface ExecuteOptions {
+  disablePostConditions?: boolean;
   senderKey?: string;
   fee?: number;
+
 }
 
 export interface PoolEvent {
