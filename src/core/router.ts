@@ -14,6 +14,8 @@ import {
   broadcastTransaction,
   tupleCV,
   principalCV,
+  StxPostCondition,
+  FungiblePostCondition,
 } from "@stacks/transactions";
 import type {
   Token,
@@ -43,20 +45,33 @@ export class Router {
   // Transaction building for multi-hops
   // -----------------------------------
   static buildRouterTransaction(route: Route, amount: number) {
-    // Collect post-conditions from each hop’s vault
-    const allPostConditions: any[] = [];
+    // Create a map to track combined post-conditions by token
+    const pcMap = new Map<string, any>();
+    
     for (const hop of route.hops) {
       const hopAmountIn = hop.quote?.amountIn ?? amount;
       const hopAmountOut = hop.quote?.amountOut ?? 0;
 
-      // Use vault’s method to build the basic post-conditions for this hop
-      const pc = hop.vault.buildSwapPostConditions(
+      // Get post-conditions for this hop
+      const hopPCs = hop.vault.buildSwapPostConditions(
         hop.tokenIn,
         hop.tokenOut,
         hopAmountIn,
         hopAmountOut
       );
-      allPostConditions.push(...pc);
+
+      // Combine post-conditions by token
+      for (const pc of hopPCs as FungiblePostCondition[]) {
+        const key = `${pc.address}-${pc.asset ?? 'STX'}}`;
+        if (pcMap.has(key)) {
+          // Add amounts for existing token PC
+          const existingPC = pcMap.get(key);
+          existingPC.amount = existingPC.amount + pc.amount;
+        } else {
+          // Create new entry for this token PC
+          pcMap.set(key, { ...pc });
+        }
+      }
     }
 
     const functionArgs = [
@@ -76,7 +91,7 @@ export class Router {
       functionName: `swap-${route.hops.length}`,
       functionArgs,
       postConditionMode: PostConditionMode.Deny,
-      postConditions: allPostConditions,
+      postConditions: Array.from(pcMap.values()), // Use combined post-conditions
     };
   }
 
