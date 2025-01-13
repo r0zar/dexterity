@@ -66,7 +66,7 @@ export class Router {
         if (pcMap.has(key)) {
           // Add amounts for existing token PC
           const existingPC = pcMap.get(key);
-          existingPC.amount = existingPC.amount + pc.amount;
+          existingPC.amount = Number(existingPC.amount) + Number(pc.amount);
         } else {
           // Create new entry for this token PC
           pcMap.set(key, { ...pc });
