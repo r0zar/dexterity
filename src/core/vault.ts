@@ -14,7 +14,6 @@ import { Dexterity } from "./sdk";
 import { ErrorUtils } from "../utils";
 import { ERROR_CODES } from "../utils/constants";
 import type { LPToken, Quote, Token, Delta, ExecuteOptions, ContractId, TokenMetadata, Liquidity } from "../types";
-import { openContractCall, openContractDeploy } from "@stacks/connect";
 import { CodeGen } from "../utils/codegen";
 
 export class Vault {
@@ -268,7 +267,7 @@ export class Vault {
       const txConfig = await this.buildTransaction(opcode, amount);
 
       if (options?.disablePostConditions) {
-        console.warn("Post conditions disabled");
+        console.warn("Post conditions disabled!");
         txConfig.postConditionMode = PostConditionMode.Allow;
         txConfig.postConditions = []
       }
@@ -287,6 +286,7 @@ export class Vault {
         return broadcastTransaction({ transaction });
       } else {
         // Client-side: use wallet to sign and broadcast
+        const { openContractCall } = await import('@stacks/connect')
         await openContractCall({
           ...txConfig,
           fee: options.fee || 1000,
@@ -358,6 +358,7 @@ export class Vault {
       });
       return broadcastTransaction({ transaction });
     } else {
+      const { openContractDeploy } = await import('@stacks/connect')
       await openContractDeploy(deployConfig);
     }
   }

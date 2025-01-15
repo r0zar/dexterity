@@ -14,7 +14,6 @@ import {
   broadcastTransaction,
   tupleCV,
   principalCV,
-  StxPostCondition,
   FungiblePostCondition,
 } from "@stacks/transactions";
 import type {
@@ -24,7 +23,6 @@ import type {
   ExecuteOptions,
   ContractId,
 } from "../types";
-import { openContractCall } from "@stacks/connect";
 
 interface GraphEdge {
   vault: Vault;
@@ -118,14 +116,15 @@ export class Router {
         const transaction = await makeContractCall({
           ...txConfig,
           senderKey: Dexterity.config.privateKey,
-          fee: options?.fee || 10000,
+          fee: options?.fee || 1000,
         });
         return broadcastTransaction({ transaction });
       } else {
         // Client-side: use wallet to sign and broadcast
-        await openContractCall({
-          ...txConfig,
-          fee: options?.fee || 10000,
+        const { openContractCall } = await import('@stacks/connect')
+        await openContractCall({ 
+          ...txConfig, 
+          fee: options?.fee || 1000
         });
       }
     } catch (error) {
