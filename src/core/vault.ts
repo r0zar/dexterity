@@ -30,7 +30,7 @@ export class Vault {
   public image: string = "";
   public fee: number = 0;
   public externalPoolId: string = "";
-  
+  public engineContractId: string = "";
   // Pool state
   public liquidity: Liquidity[] = [];
   public tokenA: Liquidity;
@@ -56,6 +56,7 @@ export class Vault {
     this.supply = config.supply ?? this.supply;
     this.externalPoolId = config.externalPoolId ?? this.externalPoolId;
     this.liquidity = config.liquidity ?? this.liquidity;
+    this.engineContractId = config.engineContractId ?? this.engineContractId;
 
     // Update liquidity tokens if available
     if (config.liquidity) {
@@ -108,6 +109,7 @@ export class Vault {
     this.image = metadata.image || "";
     this.fee = Math.floor((metadata.properties.lpRebatePercent / 100) * 1000000);
     this.externalPoolId = metadata.properties.externalPoolId || "";
+    this.engineContractId = metadata.properties.engineContractId || "";
 
     // Fetch and set token info
     const [token0, token1] = await Promise.all([
@@ -208,6 +210,7 @@ export class Vault {
       ],
       supply: this.supply,
       externalPoolId: this.externalPoolId as ContractId,
+      engineContractId: this.engineContractId as ContractId
     };
   }
 
@@ -347,6 +350,47 @@ export class Vault {
 
   async deployContract(): Promise<TxBroadcastResult | void> {
     const deployConfig = CodeGen.generateVault(this.toLPToken());
+
+    if (Dexterity.config.mode === "server") {
+      if (!Dexterity.config.privateKey) {
+        throw new Error("Private key is required for server-side deployment");
+      }
+      const transaction = await makeContractDeploy({
+        ...deployConfig,
+        senderKey: Dexterity.config.privateKey,
+      });
+      return broadcastTransaction({ transaction });
+    } else {
+      const { openContractDeploy } = await import('@stacks/connect')
+      await openContractDeploy(deployConfig);
+    }
+  }
+
+  /**
+   * Generate Hold-to-Earn engine contract code for this vault
+   */
+  generateHoldToEarnCode(): string {
+    const holdToEarnConfig = {
+      contractName: `${this.name}`,
+      targetContract: this.contractId,
+      contractId: `${this.contractAddress}.${this.contractName}-hold-to-earn`
+    };
+    
+    const deployConfig = CodeGen.generateHoldToEarn(holdToEarnConfig);
+    return deployConfig.codeBody;
+  }
+
+  /**
+   * Deploy Hold-to-Earn engine contract for this vault
+   */
+  async deployHoldToEarnContract(): Promise<TxBroadcastResult | void> {
+    const holdToEarnConfig = {
+      contractName: `${this.name}`,
+      targetContract: this.contractId,
+      contractId: `${this.contractAddress}.${this.contractName}-hold-to-earn`
+    };
+
+    const deployConfig = CodeGen.generateHoldToEarn(holdToEarnConfig);
 
     if (Dexterity.config.mode === "server") {
       if (!Dexterity.config.privateKey) {

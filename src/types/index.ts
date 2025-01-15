@@ -26,6 +26,7 @@ export interface Liquidity extends Token {
 export interface LPToken extends Token {
   liquidity: Liquidity[];
   externalPoolId?: ContractId;
+  engineContractId?: ContractId;
   fee: number;
 }
 
@@ -99,6 +100,7 @@ export interface TokenMetadata {
     tokenBContract: string;
     lpRebatePercent: number;
     externalPoolId?: string;
+    engineContractId?: string;
   };
 }
 
