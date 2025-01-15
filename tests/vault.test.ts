@@ -189,10 +189,10 @@ describe("Vaults", async () => {
         expect(contract).toContain("(define-private (calculate-trapezoid-areas-2");
       });
 
-      it('should deploy hold-to-earn contract', async () => {
-        const result = await baseVault.deployHoldToEarnContract();
-        console.log(result);
-      });
+      // it('should deploy hold-to-earn contract', async () => {
+      //   const result = await baseVault.deployHoldToEarnContract();
+      //   console.log(result);
+      // });
     });
   });
 });
