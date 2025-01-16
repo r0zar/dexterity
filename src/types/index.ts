@@ -95,7 +95,6 @@ export interface TokenMetadata {
   symbol: string;
   decimals: number;
   properties?: {
-    contractName: `${string}.${string}`;
     tokenAContract: string;
     tokenBContract: string;
     lpRebatePercent: number;

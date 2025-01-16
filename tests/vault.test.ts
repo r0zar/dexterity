@@ -168,7 +168,7 @@ describe("Vaults", async () => {
       let baseVault: Vault;
     
       beforeAll(async () => {
-        baseVault = await Vault.build("SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.dexterity-pool-v1");
+        baseVault = await Vault.build("SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.charismatic-flow");
       });
 
       it("should generate valid hold-to-earn contract", () => {
@@ -193,6 +193,60 @@ describe("Vaults", async () => {
       //   const result = await baseVault.deployHoldToEarnContract();
       //   console.log(result);
       // });
+    });
+  });
+
+  describe("Vault Metadata Management", () => {
+    let testVault: Vault;
+
+    beforeAll(async () => {
+      testVault = await Vault.build("SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.whats-up-dog");
+    });
+
+    it("should fetch initial metadata correctly", () => {
+      expect(testVault.name).toBe("What's Up Dog?");
+      expect(testVault.symbol).toBe("UPDOG");
+      expect(testVault.description).toBeTypeOf("string");
+      expect(testVault.fee).toBeGreaterThan(0);
+      expect(testVault.fee).toBeLessThanOrEqual(1000000);
+      console.log(testVault);
+    });
+
+    it("should update metadata in memory", async () => {
+      const updates = {
+        description: "Updated description for testing",
+      };
+
+      await testVault.updateMetadata(updates);
+      
+      expect(testVault.description).toBe(updates.description);
+    });
+
+    it("should validate metadata updates", async () => {
+      // Invalid name
+      await expect(testVault.updateMetadata({
+        name: "a"
+      })).rejects.toThrow("Name must be at least 2 characters");
+
+      // Invalid symbol
+      await expect(testVault.updateMetadata({
+        symbol: "ABC-D"
+      })).rejects.toThrow("Symbol can only contain uppercase letters and numbers");
+    });
+
+    it("should persist metadata changes", async () => {
+      const updates = {
+        // description: "Testing persistence layer",
+        description: 'Not much, how about you?'
+      };
+
+      await testVault.updateMetadataWithStorage(updates);
+      
+      // Fetch a fresh instance to verify persistence
+      const refreshedVault = await Vault.build(testVault.contractId);
+      
+      expect(refreshedVault.description).toBe(updates.description);
+      expect(refreshedVault.fee).toBe(20000); // 2% converted to basis points
     });
   });
 });

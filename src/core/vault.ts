@@ -496,4 +496,147 @@ export class Vault {
       ? Pc.principal(sender).willSendEq(amount).ft(token.contractId, token.identifier)
       : Pc.principal(sender).willSendGte(amount).ft(token.contractId, token.identifier);
   }
+
+  /**
+   * Update vault metadata fields
+   */
+  async updateMetadata(updates: Partial<TokenMetadata>): Promise<void> {
+    // Validate required fields
+    if (updates.name) this.validateName(updates.name);
+    if (updates.symbol) this.validateSymbol(updates.symbol);
+    if (updates.decimals) this.validateDecimals(updates.decimals);
+    if (updates.properties?.lpRebatePercent) {
+      this.validateFee(Math.floor((updates.properties.lpRebatePercent / 100) * 1000000));
+    }
+
+    // Update fields
+    this.name = updates.name ?? this.name;
+    this.symbol = updates.symbol ?? this.symbol;
+    this.decimals = updates.decimals ?? this.decimals;
+    this.identifier = updates.identifier ?? this.identifier;
+    this.description = updates.description ?? this.description;
+    this.image = updates.image ?? this.image;
+    
+    if (updates.properties) {
+      this.fee = Math.floor((updates.properties.lpRebatePercent / 100) * 1000000);
+      this.externalPoolId = updates.properties.externalPoolId || "";
+      this.engineContractId = updates.properties.engineContractId || "";
+    }
+  }
+
+  /**
+   * Validate vault name (required for Clarity contract generation)
+   */
+  private validateName(name: string): void {
+    if (name.length < 2) {
+      throw new Error("Name must be at least 2 characters");
+    }
+    if (!/^[a-zA-Z0-9\-]+$/.test(name)) {
+      throw new Error("Name can only contain letters, numbers, and hyphens");
+    }
+  }
+
+  /**
+   * Validate vault symbol (required for Clarity contract generation)
+   */
+  private validateSymbol(symbol: string): void {
+    if (symbol.length < 2 || symbol.length > 5) {
+      throw new Error("Symbol must be between 2-5 characters");
+    }
+    if (!/^[A-Z0-9]+$/.test(symbol)) {
+      throw new Error("Symbol can only contain uppercase letters and numbers");
+    }
+  }
+
+  /**
+   * Validate decimals (must be non-negative integer)
+   */
+  private validateDecimals(decimals: number): void {
+    if (!Number.isInteger(decimals) || decimals < 0) {
+      throw new Error("Decimals must be a non-negative integer");
+    }
+  }
+
+  /**
+   * Validate fee (must be between 0-1000000, representing 0-100%)
+   */
+  private validateFee(fee: number): void {
+    if (!Number.isInteger(fee) || fee < 0 || fee > 1000000) {
+      throw new Error("Fee must be between 0-1000000 (0-100%)");
+    }
+  }
+
+  /**
+   * Get full metadata object
+   */
+  getMetadata(): TokenMetadata {
+    return {
+      name: this.name,
+      symbol: this.symbol,
+      decimals: this.decimals,
+      identifier: this.identifier,
+      description: this.description,
+      image: this.image,
+      properties: {
+        lpRebatePercent: (this.fee / 1000000) * 100,
+        externalPoolId: this.externalPoolId,
+        engineContractId: this.engineContractId,
+        tokenAContract: this.tokenA.contractId,
+        tokenBContract: this.tokenB.contractId
+      }
+    };
+  }
+
+  /**
+   * Update metadata both in memory and persistence layer
+   */
+  async updateMetadataWithStorage(updates: Partial<TokenMetadata>): Promise<void> {
+    // First validate and update in memory
+    await this.updateMetadata(updates);
+    
+    // Then persist changes
+    await this.persistMetadata();
+  }
+
+  /**
+   * Persist current metadata state to storage
+   */
+  private async persistMetadata(): Promise<void> {
+    const metadata = this.getMetadata();
+    const uri = await this.getTokenUri();
+    
+    if (!uri) {
+      throw new Error("No token URI configured for vault");
+    }
+
+    // Default implementation assumes charisma.rocks API endpoint
+    // This matches the URI format in CodeGen.prepareGenerationOptions
+    const response = await fetch(uri, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(metadata)
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to persist metadata: ${response.statusText}`);
+    }
+  }
+
+  /**
+   * Get current token URI from contract
+   */
+  private async getTokenUri(): Promise<string | null> {
+    try {
+      const result = await Dexterity.client.callReadOnly(
+        this.contractId,
+        "get-token-uri"
+      );
+      return result.value;
+    } catch (error) {
+      console.error("Failed to get token URI:", error);
+      return null;
+    }
+  }
 }
