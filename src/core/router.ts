@@ -121,8 +121,8 @@ export class Router {
         return broadcastTransaction({ transaction });
       } else {
         // Client-side: use wallet to sign and broadcast
-        const { openContractCall } = await import('@stacks/connect')
-        await openContractCall({ 
+        const { showContractCall } = await import('@stacks/connect')
+        await showContractCall({ 
           ...txConfig, 
           fee: options?.fee || 1000
         });
