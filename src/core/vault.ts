@@ -323,7 +323,9 @@ export class Vault {
       ];
 
       // Add additional post condition for specific external pool
-      if (this.externalPoolId === 'SP1Y5YSTAHZ88XYK1VPDH24GY0HPX5J4JECTMY4A1.univ2-core') {
+      if (this.externalPoolId === 'SP1Y5YSTAHZ88XYK1VPDH24GY0HPX5J4JECTMY4A1.univ2-core' ||
+        this.externalPoolId.startsWith('SP20X3DC5R091J8B6YPQT638J8NR1W83KN6TN5BJY.univ2-pool-v1')
+      ) {
         postConditions.push(
           this.createPostCondition(tokenIn, 0, this.externalPoolId, 'gte')
         );
