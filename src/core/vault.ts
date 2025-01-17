@@ -314,9 +314,9 @@ export class Vault {
     amountIn: number,
     amountOut: number
   ): PostCondition[] {
+    const minAmountOut = Math.floor(amountOut * 0.99); // 1% error margin / slippage
     // For wrapper contract, use external pool ID if available
     if (this.externalPoolId) {
-      const minAmountOut = Math.floor(amountOut * 0.99); // 1% error margin
       const postConditions = [
         this.createPostCondition(tokenIn, amountIn, Dexterity.config.stxAddress, 'eq'),
         this.createPostCondition(tokenOut, minAmountOut, this.externalPoolId, 'gte'),
@@ -337,7 +337,7 @@ export class Vault {
     // Default behavior for non-wrapper contracts
     return [
       this.createPostCondition(tokenIn, amountIn, Dexterity.config.stxAddress),
-      this.createPostCondition(tokenOut, amountOut, this.contractId),
+      this.createPostCondition(tokenOut, minAmountOut, this.contractId, 'gte'),
     ];
   }
   
