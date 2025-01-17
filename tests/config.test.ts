@@ -33,11 +33,11 @@ describe("SDK Configuration", () => {
 
   it("should handle multiple partial updates", async () => {
     await Dexterity.configure({ maxHops: 2 });
-    await Dexterity.configure({ defaultSlippage: 1 });
+    await Dexterity.configure({ defaultSlippage: 0.01 });
     
     const config = Dexterity.config;
     expect(config.maxHops).toBe(2);
-    expect(config.defaultSlippage).toBe(1);
+    expect(config.defaultSlippage).toBe(0.01);
   });
 
   it("should validate partial updates", async () => {
@@ -46,7 +46,7 @@ describe("SDK Configuration", () => {
     ).rejects.toThrow();
 
     await expect(
-      Dexterity.configure({ defaultSlippage: 101 })
+      Dexterity.configure({ defaultSlippage: 1.1 })
     ).rejects.toThrow();
   });
 

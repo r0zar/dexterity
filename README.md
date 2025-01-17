@@ -175,8 +175,8 @@ Manage CLI settings:
 dexterity config ls
 
 # Set values
-dexterity config set maxHops 3
-dexterity config set defaultSlippage 0.5
+dexterity config set maxHops 3 # router graph search depth
+dexterity config set defaultSlippage 0.02 # 2% slippage
 
 # Reset to defaults
 dexterity config reset
