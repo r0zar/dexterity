@@ -17,6 +17,8 @@ export class Opcode {
     ADD_LIQUIDITY: 0x02,    // Add liquidity to pool
     REMOVE_LIQUIDITY: 0x03, // Remove liquidity from pool
     LOOKUP_RESERVES: 0x04,  // Lookup reserves for a token
+    BRIDGE_A_TO_B: 0x05,    // Bridge token A to token B
+    BRIDGE_B_TO_A: 0x06,    // Bridge token B to token A
   }
 
   constructor(code: number = 0x00) {
@@ -60,6 +62,14 @@ export class Opcode {
 
   static lookupReserves(): Opcode {
     return new Opcode(this.types.LOOKUP_RESERVES);
+  }
+
+  static bridgeAtoB(): Opcode {
+    return new Opcode(this.types.BRIDGE_A_TO_B);
+  }
+
+  static bridgeBtoA(): Opcode {
+    return new Opcode(this.types.BRIDGE_B_TO_A);
   }
 
   /**

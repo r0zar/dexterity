@@ -575,4 +575,195 @@ ${this.generateBalanceIntegrals()}
         (if (>= block-difference (get threshold-5-point thresholds)) (calculate-balance-integral-5 address start-block end-block)
         (calculate-balance-integral-2 address start-block end-block)))))))`;
   }
+
+  /**
+   * Generates a Bridge contract for a given vault
+   */
+  static generateBridge(config: any): any {
+    const contract = `
+    ;; Title: Bridge Token Contract for ${config.name}
+    ;; Version: 1.0.0
+    
+    ;; Implement SIP010 trait
+    (impl-trait 'SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.charisma-traits-v1.sip010-ft-trait)
+    (define-data-var token-uri (optional (string-utf8 256)) (some u"${config.tokenUri}"))
+
+    ;; Define token
+    (define-fungible-token ${config.symbol})
+    
+    ;; Constants
+    (define-constant CONTRACT_OWNER tx-sender)
+    (define-constant ERR_OWNER_ONLY (err u100))
+    (define-constant ERR_NOT_TOKEN_OWNER (err u101))
+    
+    ;; Authorization check
+    (define-private (is-contract-owner)
+      (is-eq tx-sender CONTRACT_OWNER))
+
+    ;; SIP010 transfer function
+    (define-public (transfer (amount uint) (from principal) (to principal) (memo (optional (buff 34))))
+      (begin
+        (asserts! (is-eq tx-sender from) ERR_NOT_TOKEN_OWNER)
+        (try! (ft-transfer? ${config.symbol} amount from to))
+        (match memo to-print (print to-print) 0x)
+        (ok true)))
+
+    ;; Bridge functions - restricted to contract owner
+    (define-public (mint (amount uint) (recipient principal))
+      (begin
+        (asserts! (is-contract-owner) ERR_OWNER_ONLY)
+        (ft-mint? ${config.symbol} amount recipient)))
+
+    (define-public (burn (amount uint) (owner principal))
+      (begin
+        (asserts! (is-contract-owner) ERR_OWNER_ONLY)
+        (ft-burn? ${config.symbol} amount owner)))
+
+    ;; Read only functions
+    (define-read-only (get-name)
+      (ok "${config.name}"))
+
+    (define-read-only (get-symbol)
+      (ok "${config.symbol}"))
+
+    (define-read-only (get-decimals)
+      (ok u${config.decimals}))
+
+    (define-read-only (get-balance (who principal))
+      (ok (ft-get-balance ${config.symbol} who)))
+
+    (define-read-only (get-total-supply)
+      (ok (ft-get-supply ${config.symbol})))
+
+    (define-read-only (get-token-uri)
+      (ok (var-get token-uri))))`;
+
+    const [, name] = config.contractId.split(".");
+    
+    return {
+      contractName: name,
+      codeBody: contract,
+      network: Dexterity.config.network,
+      postConditionMode: PostConditionMode.Deny,
+      fee: 250000,
+      clarityVersion: 3
+    };
+  }
+  
+  static generateSolanaBridge(config: {
+    name: string;
+    symbol: string;
+  }): any {
+    const program = `use anchor_lang::prelude::*;
+use anchor_spl::token::{self, Token, TokenAccount, Mint, Transfer};
+
+declare_id!("PLACEHOLDER_PROGRAM_ID");
+
+#[program]
+pub mod ${config.name.toLowerCase().replace(/-/g, '_')} {
+    use super::*;
+
+    // Anyone can lock tokens by sending to bridge custody
+    pub fn lock(ctx: Context<Lock>, amount: u64) -> Result<()> {
+        let cpi_accounts = Transfer {
+            from: ctx.accounts.from.to_account_info(),
+            to: ctx.accounts.custody.to_account_info(),
+            authority: ctx.accounts.owner.to_account_info(),
+        };
+        let cpi_program = ctx.accounts.token_program.to_account_info();
+        token::transfer(cpi_ctx, amount)?;
+
+        emit!(LockEvent {
+            from: ctx.accounts.owner.key(),
+            amount,
+            timestamp: Clock::get()?.unix_timestamp,
+        });
+        Ok(())
+    }
+
+    // Only custodian can unlock tokens
+    pub fn unlock(ctx: Context<Unlock>, amount: u64) -> Result<()> {
+        let cpi_accounts = Transfer {
+            from: ctx.accounts.custody.to_account_info(),
+            to: ctx.accounts.to.to_account_info(),
+            authority = ctx.accounts.custodian.to_account_info(),
+        };
+        let cpi_program = ctx.accounts.token_program.to_account_info();
+        token::transfer(cpi_ctx, amount)?;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct Lock<'info> {
+    pub owner: Signer<'info>,
+    #[account(mut)]
+    pub from: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub custody: Account<'info, TokenAccount>,
+    pub token_program: Program<'info, Token>,
+}
+
+#[derive(Accounts)]
+pub struct Unlock<'info> {
+    pub custodian: Signer<'info>,
+    #[account(mut)]
+    pub custody: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub to: Account<'info, TokenAccount>,
+    pub token_program: Program<'info, Token>,
+}
+
+#[event]
+pub struct LockEvent {
+    pub from: Pubkey,
+    pub amount: u64,
+    pub timestamp: i64,
+}`;
+
+    return {
+      name: config.name,
+      program,
+      idl: {
+        version: "0.1.0",
+        name: config.name,
+        instructions: [
+          {
+            name: "lock",
+            accounts: [
+              { name: "owner", isMut: false, isSigner: true },
+              { name: "from", isMut: true, isSigner: false },
+              { name: "custody", isMut: true, isSigner: false },
+              { name: "tokenProgram", isMut: false, isSigner: false }
+            ],
+            args: [
+              { name: "amount", type: "u64" }
+            ]
+          },
+          {
+            name: "unlock",
+            accounts: [
+              { name: "custodian", isMut: false, isSigner: true },
+              { name: "custody", isMut: true, isSigner: false },
+              { name: "to", isMut: true, isSigner: false },
+              { name: "tokenProgram", isMut: false, isSigner: false }
+            ],
+            args: [
+              { name: "amount", type: "u64" }
+            ]
+          }
+        ],
+        events: [
+          {
+            name: "LockEvent",
+            fields: [
+              { name: "from", type: "publicKey" },
+              { name: "amount", type: "u64" },
+              { name: "timestamp", type: "i64" }
+            ]
+          }
+        ]
+      }
+    };
+  }
 } 

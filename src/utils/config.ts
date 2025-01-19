@@ -37,6 +37,7 @@ export const DEFAULT_SDK_CONFIG: SDKConfig = {
   routerAddress: "SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS",
   routerName: "multihop",
   parallelRequests: 1,
+  heliusApiKey: "",
 };
 
 // Single source of truth for config validation
@@ -84,6 +85,10 @@ function loadEnvironmentConfig(): Partial<SDKConfig> {
     const key = process.env.HIRO_API_KEY || process.env.STACKS_API_KEY;
     config.apiKey = key;
     config.apiKeys = [key!];
+  }
+
+  if (process.env.HELIUS_API_KEY) {
+    config.heliusApiKey = process.env.HELIUS_API_KEY;
   }
 
   return config;

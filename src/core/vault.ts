@@ -213,6 +213,15 @@ export class Vault {
       engineContractId: this.engineContractId as ContractId
     };
   }
+  
+
+  async getBridgeRequests() {
+    console.log('Getting bridge requests by:');
+    console.log('1. Finding all BRIDGE_A_TO_B and BRIDGE_B_TO_A transactions for this vault');
+    console.log('2. Looking up corresponding processed events on opposite chain');
+    console.log('3. Identifying unprocessed requests that need handling');
+    return []
+  }
 
   // ----------------
   // Quoting & Reads
@@ -318,7 +327,7 @@ export class Vault {
     // For wrapper contract, use external pool ID if available
     if (this.externalPoolId) {
       const postConditions = [
-        this.createPostCondition(tokenIn, amountIn, Dexterity.config.stxAddress, 'eq'),
+        this.createPostCondition(tokenIn, amountIn, Dexterity.config.stxAddress, 'lte'),
         this.createPostCondition(tokenOut, minAmountOut, this.externalPoolId, 'gte'),
       ];
 
@@ -336,7 +345,7 @@ export class Vault {
     
     // Default behavior for non-wrapper contracts
     return [
-      this.createPostCondition(tokenIn, amountIn, Dexterity.config.stxAddress),
+      this.createPostCondition(tokenIn, amountIn, Dexterity.config.stxAddress, 'lte'),
       this.createPostCondition(tokenOut, minAmountOut, this.contractId, 'gte'),
     ];
   }
@@ -365,6 +374,61 @@ export class Vault {
     } else {
       const { showContractDeploy } = await import('@stacks/connect')
       await showContractDeploy(deployConfig);
+    }
+  }
+
+  /**
+   * Generate Bridge contract code for this vault
+   */
+  generateBridgeCode(): string {
+    const bridgeConfig = {
+      contractName: `${this.name}-bridge`,
+      targetContract: this.contractId,
+      contractId: `${this.contractAddress}.${this.contractName}-bridge`,
+      tokenA: this.tokenA,
+      tokenB: this.tokenB
+    };
+    
+    // Generate Stacks contract
+    const deployConfig = CodeGen.generateBridge(bridgeConfig); 
+
+    // Generate Solana program
+    const solanaProgram = CodeGen.generateSolanaBridge({
+      name: `${this.symbol}-bridge`,
+      symbol: this.symbol
+    });
+
+    console.log(solanaProgram);
+
+    return deployConfig.codeBody;
+  }
+
+  /**
+   * Deploy Bridge contract for this vault
+   */
+  async deployBridge(): Promise<TxBroadcastResult | void> {
+    const bridgeConfig = {
+      contractName: `${this.name}-bridge`,
+      targetContract: this.contractId,
+      contractId: `${this.contractAddress}.${this.contractName}-bridge`,
+      tokenA: this.tokenA,
+      tokenB: this.tokenB
+    };
+
+    const deployConfig = CodeGen.generateBridge(bridgeConfig);
+
+    if (Dexterity.config.mode === "server") {
+      if (!Dexterity.config.privateKey) {
+        throw new Error("Private key required for server-side deployment");
+      }
+      const transaction = await makeContractDeploy({
+        ...deployConfig,
+        senderKey: Dexterity.config.privateKey,
+      });
+      return broadcastTransaction({ transaction });
+    } else {
+      const { openContractDeploy } = await import('@stacks/connect')
+      await openContractDeploy(deployConfig);
     }
   }
 
@@ -487,16 +551,18 @@ export class Vault {
     token: Token,
     amount: number,
     sender: string,
-    condition: 'eq' | 'gte' = 'eq'
+    condition: 'eq' | 'gte' | 'lte' = 'eq'
   ): PostCondition {
     if (token.contractId === ".stx") {
       return condition === 'eq' 
         ? Pc.principal(sender).willSendEq(amount).ustx()
-        : Pc.principal(sender).willSendGte(amount).ustx();
+        : condition === 'gte' ? Pc.principal(sender).willSendGte(amount).ustx()
+        : Pc.principal(sender).willSendLte(amount).ustx();
     }
     return condition === 'eq'
       ? Pc.principal(sender).willSendEq(amount).ft(token.contractId, token.identifier)
-      : Pc.principal(sender).willSendGte(amount).ft(token.contractId, token.identifier);
+      : condition === 'gte' ? Pc.principal(sender).willSendGte(amount).ft(token.contractId, token.identifier)
+      : Pc.principal(sender).willSendLte(amount).ft(token.contractId, token.identifier);
   }
 
   /**

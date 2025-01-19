@@ -129,6 +129,7 @@ export interface SDKConfig {
   routerAddress: string;
   routerName: string;
   parallelRequests: number;
+  heliusApiKey: string;
 }
 
 export interface ContractParams {
