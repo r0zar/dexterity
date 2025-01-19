@@ -323,11 +323,12 @@ export class Vault {
     amountIn: number,
     amountOut: number,
   ): PostCondition[] {
+    const maxAmountIn = Math.floor(amountIn * (1 + Dexterity.config.defaultSlippage)); // apply slippage
     const minAmountOut = Math.floor(amountOut * (1 - Dexterity.config.defaultSlippage)); // apply slippage
     // For wrapper contract, use external pool ID if available
     if (this.externalPoolId) {
       const postConditions = [
-        this.createPostCondition(tokenIn, amountIn, Dexterity.config.stxAddress, 'lte'),
+        this.createPostCondition(tokenIn, maxAmountIn, Dexterity.config.stxAddress, 'lte'),
         this.createPostCondition(tokenOut, minAmountOut, this.externalPoolId, 'gte'),
       ];
 
@@ -345,7 +346,7 @@ export class Vault {
     
     // Default behavior for non-wrapper contracts
     return [
-      this.createPostCondition(tokenIn, amountIn, Dexterity.config.stxAddress, 'lte'),
+      this.createPostCondition(tokenIn, maxAmountIn, Dexterity.config.stxAddress, 'lte'),
       this.createPostCondition(tokenOut, minAmountOut, this.contractId, 'gte'),
     ];
   }
