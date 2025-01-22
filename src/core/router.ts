@@ -132,13 +132,14 @@ export class Router {
         const contractCallOptions: any = {
           ...txConfig,
           sponsored: Dexterity.config.sponsored,
-          onFinish: (data: any) => {
-            Dexterity.client.requestSponsoredTransaction(data.txRaw)
-              .then(r => r.json()).then(console.log).catch(console.error)
-          }
         }
         if (Dexterity.config.sponsored) {
           contractCallOptions.fee = options?.fee || 1000
+        } else {
+          contractCallOptions.onFinish = (data: any) => {
+            Dexterity.client.requestSponsoredTransaction(data.txRaw)
+              .then(r => r.json()).then(console.log).catch(console.error)
+          }
         }
         await showContractCall(contractCallOptions);
       }
