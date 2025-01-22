@@ -30,7 +30,7 @@ export class StacksClient {
     if (!apiKeys.length) return "";
 
     const rotationStrategy = Dexterity.config.apiKeyRotation || "loop";
-    
+
     if (rotationStrategy === "random") {
       const randomIndex = Math.floor(Math.random() * apiKeys.length);
       return apiKeys[randomIndex];
@@ -86,6 +86,20 @@ export class StacksClient {
         await new Promise((resolve) => setTimeout(resolve, attempt * 1000));
       }
     }
+  }
+
+  async requestSponsoredTransaction(serializedTx: string) {
+    const response = await fetch(Dexterity.config.sponsor, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        serializedTx
+      }),
+    });
+
+    return response.json();
   }
 
   async proxyReadOnly(
@@ -247,7 +261,7 @@ export class StacksClient {
             (contract: any) => !omitList.includes(contract.contract_id)
           );
           allContracts = [...allContracts, ...filteredResults];
-          
+
           if (limit && allContracts.length >= limit) {
             allContracts = allContracts.slice(0, limit);
             hasMore = false;

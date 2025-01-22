@@ -25,6 +25,8 @@ export const DEFAULT_SDK_CONFIG: SDKConfig = {
   apiKeys: undefined,
   apiKeyRotation: "random",
   privateKey: "",
+  sponsored: false,
+  sponsor: "https://charisma.rocks/api/v0/sponsor",
   mode: "server",
   stxAddress: "",
   proxy: "https://charisma.rocks/api/v0/proxy",
@@ -77,7 +79,7 @@ function loadFileConfig(): Partial<SDKConfig> {
 // Simple environment config loading
 function loadEnvironmentConfig(): Partial<SDKConfig> {
   const config: Partial<SDKConfig> = {};
-  
+
   if (process.env.HIRO_API_KEYS) {
     config.apiKeys = process.env.HIRO_API_KEYS.split(',').filter(Boolean);
     config.apiKey = config.apiKeys[0];
@@ -122,7 +124,7 @@ export async function loadConfig(runtimeConfig?: Partial<SDKConfig>): Promise<SD
       secretKey: process.env.SEED_PHRASE,
       password: "",
     });
-    
+
     config.mode = "server";
     config.privateKey = wallet.accounts[0].stxPrivateKey;
     config.stxAddress = getStxAddress(wallet.accounts[0], config.network);

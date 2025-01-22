@@ -20,7 +20,7 @@ export class Vault {
   public readonly contractAddress: string;
   public readonly contractName: string;
   public readonly contractId: ContractId;
-  
+
   // Token metadata
   public name: string = "";
   public symbol: string = "";
@@ -40,7 +40,7 @@ export class Vault {
   constructor(config: Partial<LPToken> & { contractId: ContractId }) {
     this.contractId = config.contractId;
     [this.contractAddress, this.contractName] = this.contractId.split(".");
-    
+
     // Initialize empty tokens
     this.tokenA = this.createLiquidity();
     this.tokenB = this.createLiquidity();
@@ -80,7 +80,7 @@ export class Vault {
    * Static factory method to build a Vault instance from a contract ID
    */
   static async build(contractId: ContractId, reserves: boolean = true): Promise<Vault> {
-    const vault = new Vault({contractId});
+    const vault = new Vault({ contractId });
     await vault.fetchMetadata();
 
     // Optional: skip reserves for faster loading
@@ -123,7 +123,7 @@ export class Vault {
 
     return metadata;
   }
-  
+
   /**
    * Fetch both reserves and supply using lookup opcode
    */
@@ -131,7 +131,7 @@ export class Vault {
     try {
       const lookupOpcode = Opcode.lookupReserves();
       const data = await this.callContract("quote", [0, lookupOpcode]);
-      
+
       const reserves: [number, number] = [Number(data.dx), Number(data.dy)];
       const supply = Number(data.dk);
 
@@ -213,7 +213,7 @@ export class Vault {
       engineContractId: this.engineContractId as ContractId
     };
   }
-  
+
 
   async getBridgeRequests() {
     console.log('Getting bridge requests by:');
@@ -267,6 +267,7 @@ export class Vault {
       functionArgs: [uintCV(amount), opcode.build()],
       postConditionMode: PostConditionMode.Deny,
       postConditions,
+      sponsored: Dexterity.config.sponsored,
     };
   }
 
@@ -295,7 +296,11 @@ export class Vault {
           senderKey: Dexterity.config.privateKey,
           fee: options.fee || 1000,
         });
-        return broadcastTransaction({ transaction });
+        if (Dexterity.config.sponsored) {
+          return Dexterity.client.requestSponsoredTransaction(transaction.serialize());
+        } else {
+          return broadcastTransaction({ transaction });
+        }
       } else {
         // Client-side: use wallet to sign and broadcast
         const { showContractCall } = await import('@stacks/connect')
@@ -343,14 +348,14 @@ export class Vault {
 
       return postConditions;
     }
-    
+
     // Default behavior for non-wrapper contracts
     return [
       this.createPostCondition(tokenIn, maxAmountIn, Dexterity.config.stxAddress, 'lte'),
       this.createPostCondition(tokenOut, minAmountOut, this.contractId, 'gte'),
     ];
   }
-  
+
   // --------------------
   //  Contract Deployment
   // --------------------
@@ -389,9 +394,9 @@ export class Vault {
       tokenA: this.tokenA,
       tokenB: this.tokenB
     };
-    
+
     // Generate Stacks contract
-    const deployConfig = CodeGen.generateBridge(bridgeConfig); 
+    const deployConfig = CodeGen.generateBridge(bridgeConfig);
 
     // Generate Solana program
     const solanaProgram = CodeGen.generateSolanaBridge({
@@ -442,7 +447,7 @@ export class Vault {
       targetContract: this.contractId,
       contractId: `${this.contractAddress}.${this.contractName}-hold-to-earn`
     };
-    
+
     const deployConfig = CodeGen.generateHoldToEarn(holdToEarnConfig);
     return deployConfig.codeBody;
   }
@@ -555,15 +560,15 @@ export class Vault {
     condition: 'eq' | 'gte' | 'lte' = 'eq'
   ): PostCondition {
     if (token.contractId === ".stx") {
-      return condition === 'eq' 
+      return condition === 'eq'
         ? Pc.principal(sender).willSendEq(amount).ustx()
         : condition === 'gte' ? Pc.principal(sender).willSendGte(amount).ustx()
-        : Pc.principal(sender).willSendLte(amount).ustx();
+          : Pc.principal(sender).willSendLte(amount).ustx();
     }
     return condition === 'eq'
       ? Pc.principal(sender).willSendEq(amount).ft(token.contractId, token.identifier)
       : condition === 'gte' ? Pc.principal(sender).willSendGte(amount).ft(token.contractId, token.identifier)
-      : Pc.principal(sender).willSendLte(amount).ft(token.contractId, token.identifier);
+        : Pc.principal(sender).willSendLte(amount).ft(token.contractId, token.identifier);
   }
 
   /**
@@ -585,7 +590,7 @@ export class Vault {
     this.identifier = updates.identifier ?? this.identifier;
     this.description = updates.description ?? this.description;
     this.image = updates.image ?? this.image;
-    
+
     if (updates.properties) {
       this.fee = Math.floor((updates.properties.lpRebatePercent / 100) * 1000000);
       this.externalPoolId = updates.properties.externalPoolId || "";
@@ -662,7 +667,7 @@ export class Vault {
   async updateMetadataWithStorage(updates: Partial<TokenMetadata>): Promise<void> {
     // First validate and update in memory
     await this.updateMetadata(updates);
-    
+
     // Then persist changes
     await this.persistMetadata();
   }
@@ -673,7 +678,7 @@ export class Vault {
   private async persistMetadata(): Promise<void> {
     const metadata = this.getMetadata();
     const uri = await this.getTokenUri();
-    
+
     if (!uri) {
       throw new Error("No token URI configured for vault");
     }

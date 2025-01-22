@@ -117,6 +117,8 @@ export interface SDKConfig {
   apiKeys?: string[];
   apiKeyRotation?: "loop" | "random";
   privateKey: string;
+  sponsored: boolean;
+  sponsor: string;
   mode: string;
   network: 'mainnet' | 'testnet';
   proxy: string;
