@@ -15,6 +15,7 @@ import {
   tupleCV,
   principalCV,
   FungiblePostCondition,
+  ContractCallOptions,
 } from "@stacks/transactions";
 import type {
   Token,
@@ -128,15 +129,18 @@ export class Router {
       } else {
         // Client-side: use wallet to sign and broadcast
         const { showContractCall } = await import('@stacks/connect')
-        await showContractCall({
+        const contractCallOptions: any = {
           ...txConfig,
-          fee: options?.fee || 1000,
           sponsored: Dexterity.config.sponsored,
           onFinish: (data: any) => {
             Dexterity.client.requestSponsoredTransaction(data.txRaw)
               .then(r => r.json()).then(console.log).catch(console.error)
           }
-        });
+        }
+        if (Dexterity.config.sponsored) {
+          contractCallOptions.fee = options?.fee || 1000
+        }
+        await showContractCall(contractCallOptions);
       }
     } catch (error) {
       throw ErrorUtils.createError(
