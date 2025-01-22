@@ -100,21 +100,21 @@ export class CodeGen {
     const [, name] = config.contractId.split(".");
     const isTokenAStx = config.liquidity[0].contractId === ".stx";
     const isTokenBStx = config.liquidity[1].contractId === ".stx";
-    
+
     return {
       contractName: name,
       codeBody: contract,
       postConditions: [
-        isTokenAStx 
+        isTokenAStx
           ? Pc.principal(Dexterity.config.stxAddress).willSendEq(config.liquidity[0].reserves).ustx()
           : Pc.principal(Dexterity.config.stxAddress)
-              .willSendEq(config.liquidity[0].reserves)
-              .ft(config.liquidity[0].contractId, config.liquidity[0].identifier),
+            .willSendEq(config.liquidity[0].reserves)
+            .ft(config.liquidity[0].contractId, config.liquidity[0].identifier),
         isTokenBStx
           ? Pc.principal(Dexterity.config.stxAddress).willSendEq(config.liquidity[1].reserves).ustx()
           : Pc.principal(Dexterity.config.stxAddress)
-              .willSendEq(config.liquidity[1].reserves)
-              .ft(config.liquidity[1].contractId, config.liquidity[1].identifier)
+            .willSendEq(config.liquidity[1].reserves)
+            .ft(config.liquidity[1].contractId, config.liquidity[1].identifier)
       ],
       network: Dexterity.config.network,
       postConditionMode: PostConditionMode.Deny,
@@ -425,7 +425,7 @@ ${this.generateBalanceIntegrals()}
         (ok {dx: block-period, dy: integral, dk: energy})))`;
 
     const [, name] = config.contractId.split(".");
-    
+
     return {
       contractName: name,
       codeBody: contract,
@@ -639,7 +639,7 @@ ${this.generateBalanceIntegrals()}
       (ok (var-get token-uri))))`;
 
     const [, name] = config.contractId.split(".");
-    
+
     return {
       contractName: name,
       codeBody: contract,
@@ -649,7 +649,7 @@ ${this.generateBalanceIntegrals()}
       clarityVersion: 3
     };
   }
-  
+
   static generateSolanaBridge(config: {
     name: string;
     symbol: string;

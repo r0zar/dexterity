@@ -45,7 +45,7 @@ export class Router {
   static buildRouterTransaction(route: Route, amount: number) {
     // Create a map to track combined post-conditions by token
     const pcMap = new Map<string, any>();
-    
+
     for (const hop of route.hops) {
       const hopAmountIn = hop.quote?.amountIn ?? amount;
       const hopAmountOut = hop.quote?.amountOut ?? 0;
@@ -90,6 +90,7 @@ export class Router {
       functionArgs,
       postConditionMode: PostConditionMode.Deny,
       postConditions: Array.from(pcMap.values()), // Use combined post-conditions
+      sponsored: Dexterity.config.sponsored,
     };
   }
 
@@ -118,12 +119,16 @@ export class Router {
           senderKey: Dexterity.config.privateKey,
           fee: options?.fee || 1000,
         });
-        return broadcastTransaction({ transaction });
+        if (Dexterity.config.sponsored) {
+          return Dexterity.client.requestSponsoredTransaction(transaction.serialize());
+        } else {
+          return broadcastTransaction({ transaction });
+        }
       } else {
         // Client-side: use wallet to sign and broadcast
         const { showContractCall } = await import('@stacks/connect')
-        await showContractCall({ 
-          ...txConfig, 
+        await showContractCall({
+          ...txConfig,
           fee: options?.fee || 1000
         });
       }
@@ -147,7 +152,7 @@ export class Router {
     for (const vault of vaults) {
       // Add to edges map (allow duplicates)
       this.edges.set(vault.contractId, vault);
-      
+
       const [token0, token1] = vault.getTokens();
       const [reserve0, reserve1] = vault.getReserves();
 
@@ -267,7 +272,7 @@ export class Router {
     if (newPath.length <= Dexterity.config.maxHops) {
       // Group edges by target token
       const edgesByTarget = new Map<string, GraphEdge[]>();
-      
+
       for (const [edgeKey, edge] of node.edges) {
         const targetId = edge.target.contractId;
         if (!edgesByTarget.has(targetId)) {
@@ -280,12 +285,12 @@ export class Router {
       for (const [targetId, edges] of edgesByTarget) {
         for (const edge of edges) {
           const vaultId = edge.vault.contractId;
-          
+
           // Skip if we've visited this vault before
           if (!visitedVaults.has(vaultId)) {
             const newVisitedVaults = new Set(visitedVaults);
             newVisitedVaults.add(vaultId);
-            
+
             const nested = this.findAllPaths(
               targetId,
               toId,
