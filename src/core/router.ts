@@ -23,6 +23,7 @@ import type {
   ExecuteOptions,
   ContractId,
 } from "../types";
+import { Finished, SponsoredFinished } from "@stacks/connect";
 
 interface GraphEdge {
   vault: Vault;
@@ -129,7 +130,12 @@ export class Router {
         const { showContractCall } = await import('@stacks/connect')
         await showContractCall({
           ...txConfig,
-          fee: options?.fee || 1000
+          fee: options?.fee || 1000,
+          sponsored: Dexterity.config.sponsored,
+          onFinish: (data: any) => {
+            Dexterity.client.requestSponsoredTransaction(data.txRaw)
+              .then(r => r.json()).then(console.log).catch(console.error)
+          }
         });
       }
     } catch (error) {
