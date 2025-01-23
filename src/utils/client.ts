@@ -126,7 +126,15 @@ export class StacksClient {
     const { value } = await this.callReadOnly(contractId, "get-token-uri");
 
     if (!value) {
-      throw new Error(`\nNo token URI found for ${contractId}`);
+      console.error(`\nNo token URI found for ${contractId}`);
+      return {
+        identifier: "Unknown",
+        symbol: "Unknown",
+        decimals: 6,
+        name: "Unknown",
+        description: "Unknown",
+        image: "",
+      };
     }
 
     // Handle IPFS URIs
