@@ -1,7 +1,6 @@
 import { Vault } from './vault';
 import { Quote, ContractId, Liquidity } from '../types';
 import { Opcode } from './opcode';
-import client from '../utils/mexc';
 import { ErrorUtils } from '../utils';
 import { ERROR_CODES } from '../utils/constants';
 
@@ -30,6 +29,7 @@ export class MexcVault extends Vault {
   }
 
   private async getOrderBook() {
+    const { client } = await import("../utils/mexc");
     const now = Date.now();
     if (!this.lastOrderBook || now - this.lastUpdateTime > this.CACHE_DURATION) {
       this.lastOrderBook = await client.depth(this.symbol, {limit: 5000});

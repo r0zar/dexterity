@@ -6,4 +6,4 @@ const apiSecret = process.env.MEXC_API_SECRET;
 
 const client = new Spot(apiKey, apiSecret);
 
-export default client;
+export { client };

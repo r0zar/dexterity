@@ -1,17 +1,19 @@
 import { describe, it} from "vitest";
-import client from '../src/utils/mexc'
 import { Dexterity } from "../src/core/sdk";
 import { MexcVault } from "../src/core/mexc-vault";
 import { ContractId } from "../src/types";
 import { Opcode } from "../src/core/opcode";
+
 describe('mexc client', async () => {
 
     it('should get account info', async () => {
+        const { client } = await import("../src/utils/mexc");
         const accountInfo = await client.accountInfo();
         console.log(accountInfo);
     });
 
     it('should check order book for welsh/usd', async () => {
+        const { client } = await import("../src/utils/mexc");
         const orderBook = await client.depth('WELSHUSDT');
         console.log(orderBook);
     });
