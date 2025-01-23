@@ -132,8 +132,13 @@ export class StacksClient {
         symbol: "Unknown",
         decimals: 6,
         name: "Unknown",
-        description: "Unknown",
+        description: "No token URI found for this contract",
         image: "",
+        properties: {
+          tokenAContract: "",
+          tokenBContract: "",
+          lpRebatePercent: 0,
+        },
       };
     }
 
@@ -153,8 +158,13 @@ export class StacksClient {
         symbol: "Unknown",
         decimals: 6,
         name: "Unknown",
-        description: "F",
+        description: "Failed to fetch metadata from token URI",
         image: "",
+        properties: {
+          tokenAContract: "",
+          tokenBContract: "",
+          lpRebatePercent: 0,
+        },
       };
     }
 

@@ -94,7 +94,7 @@ export interface TokenMetadata {
   identifier: string;
   symbol: string;
   decimals: number;
-  properties?: {
+  properties: {
     tokenAContract: string;
     tokenBContract: string;
     lpRebatePercent: number;
