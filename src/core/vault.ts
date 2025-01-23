@@ -97,6 +97,7 @@ export class Vault {
   private async fetchMetadata(): Promise<TokenMetadata> {
     const metadata = await Dexterity.client.getTokenMetadata(this.contractId);
     if (!metadata.properties) {
+      console.log(metadata);
       throw new Error("Invalid pool metadata");
     }
 
