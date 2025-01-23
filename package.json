@@ -1,6 +1,6 @@
 {
   "name": "dexterity-sdk",
-  "version": "0.8.6",
+  "version": "0.8.7",
   "description": "SDK and CLI for interacting with Dexterity AMM protocol",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -46,6 +46,7 @@
     "@stacks/network": "7.0.2",
     "@stacks/transactions": "7.0.2",
     "@stacks/wallet-sdk": "^7.0.2",
+    "@theothergothamdev/mexc-sdk": "^1.2.2",
     "chalk": "^5.3.0",
     "commander": "^11.0.0",
     "dotenv": "^16.4.7",
