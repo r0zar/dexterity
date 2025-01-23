@@ -113,43 +113,6 @@ export class Router {
       txConfig.postConditions = []
     }
 
-<<<<<<< Updated upstream
-      if (Dexterity.config.mode === "server") {
-        // Server-side: create and broadcast transaction
-        const transaction = await makeContractCall({
-          ...txConfig,
-          senderKey: Dexterity.config.privateKey,
-          fee: options?.fee || 1000,
-        });
-        if (Dexterity.config.sponsored) {
-          return Dexterity.client.requestSponsoredTransaction(transaction.serialize());
-        } else {
-          return broadcastTransaction({ transaction });
-        }
-      } else {
-        // Client-side: use wallet to sign and broadcast
-        const { showContractCall } = await import('@stacks/connect')
-        const contractCallOptions: any = {
-          ...txConfig,
-          sponsored: Dexterity.config.sponsored,
-        }
-        if (Dexterity.config.sponsored) {
-          contractCallOptions.fee = options?.fee || 1000
-        } else {
-          contractCallOptions.onFinish = (data: any) => {
-            Dexterity.client.requestSponsoredTransaction(data.txRaw)
-              .then(r => r.json()).then(console.log).catch(console.error)
-          }
-        }
-        await showContractCall(contractCallOptions);
-      }
-    } catch (error) {
-      throw ErrorUtils.createError(
-        ERROR_CODES.TRANSACTION_FAILED,
-        "Failed to execute swap transaction",
-        error
-      );
-=======
     if (Dexterity.config.mode === "server") {
       // Server-side: create and broadcast transaction
       const transaction = await makeContractCall({
@@ -157,15 +120,27 @@ export class Router {
         senderKey: Dexterity.config.privateKey,
         fee: options?.fee || 1000,
       });
-      return broadcastTransaction({ transaction });
+      if (Dexterity.config.sponsored) {
+        return Dexterity.client.requestSponsoredTransaction(transaction.serialize());
+      } else {
+        return broadcastTransaction({ transaction });
+      }
     } else {
       // Client-side: use wallet to sign and broadcast
       const { showContractCall } = await import('@stacks/connect')
-      await showContractCall({ 
-        ...txConfig, 
-        fee: options?.fee || 1000
-      });
->>>>>>> Stashed changes
+      const contractCallOptions: any = {
+        ...txConfig,
+        sponsored: Dexterity.config.sponsored,
+      }
+      if (Dexterity.config.sponsored) {
+        contractCallOptions.fee = options?.fee || 1000
+      } else {
+        contractCallOptions.onFinish = (data: any) => {
+          Dexterity.client.requestSponsoredTransaction(data.txRaw)
+            .then(r => r.json()).then(console.log).catch(console.error)
+        }
+      }
+      await showContractCall(contractCallOptions);
     }
   }
 

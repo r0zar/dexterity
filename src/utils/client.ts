@@ -153,7 +153,7 @@ export class StacksClient {
         symbol: "Unknown",
         decimals: 6,
         name: "Unknown",
-        description: "Unknown",
+        description: "F",
         image: "",
       };
     }
