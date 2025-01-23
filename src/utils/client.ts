@@ -139,7 +139,15 @@ export class StacksClient {
     const response = await fetch(uri);
 
     if (!response.ok) {
-      throw new Error(`\nFailed to fetch metadata from ${uri}`);
+      console.error(`\nFailed to fetch metadata from ${uri}`);
+      return {
+        identifier: "Unknown",
+        symbol: "Unknown",
+        decimals: 6,
+        name: "Unknown",
+        description: "Unknown",
+        image: "",
+      };
     }
 
     return response.json();

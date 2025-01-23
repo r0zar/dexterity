@@ -104,16 +104,16 @@ export class Router {
     amount: number,
     options?: ExecuteOptions
   ): Promise<TxBroadcastResult | void> {
-    try {
-      // First build the transaction config
-      const txConfig = this.buildRouterTransaction(route, amount);
+    // First build the transaction config
+    const txConfig = this.buildRouterTransaction(route, amount);
 
-      if (options?.disablePostConditions) {
-        console.warn("Post conditions disabled");
-        txConfig.postConditionMode = PostConditionMode.Allow;
-        txConfig.postConditions = []
-      }
+    if (options?.disablePostConditions) {
+      console.warn("Post conditions disabled");
+      txConfig.postConditionMode = PostConditionMode.Allow;
+      txConfig.postConditions = []
+    }
 
+<<<<<<< Updated upstream
       if (Dexterity.config.mode === "server") {
         // Server-side: create and broadcast transaction
         const transaction = await makeContractCall({
@@ -149,6 +149,23 @@ export class Router {
         "Failed to execute swap transaction",
         error
       );
+=======
+    if (Dexterity.config.mode === "server") {
+      // Server-side: create and broadcast transaction
+      const transaction = await makeContractCall({
+        ...txConfig,
+        senderKey: Dexterity.config.privateKey,
+        fee: options?.fee || 1000,
+      });
+      return broadcastTransaction({ transaction });
+    } else {
+      // Client-side: use wallet to sign and broadcast
+      const { showContractCall } = await import('@stacks/connect')
+      await showContractCall({ 
+        ...txConfig, 
+        fee: options?.fee || 1000
+      });
+>>>>>>> Stashed changes
     }
   }
 
