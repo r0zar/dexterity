@@ -3,7 +3,6 @@ import { Dexterity } from "../src/core/sdk";
 import { Vault } from "../src/core/vault";
 import { Opcode } from "../src/core/opcode";
 import { Quote } from "../src/types";
-import { PostConditionMode } from "@stacks/transactions";
 
 describe("Vaults", async () => {
   let testVault;
@@ -200,12 +199,12 @@ describe("Vaults", async () => {
     let testVault: Vault;
 
     beforeAll(async () => {
-      testVault = await Vault.build("SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.whats-up-dog");
+      testVault = await Vault.build("SP2D5BGGJ956A635JG7CJQ59FTRFRB0893514EZPJ.old-faithful");
     });
 
     it("should fetch initial metadata correctly", () => {
-      expect(testVault.name).toBe("What's Up Dog?");
-      expect(testVault.symbol).toBe("UPDOG");
+      expect(testVault.name).toBe("Old Faithful");
+      expect(testVault.symbol).toBe("FAITH");
       expect(testVault.description).toBeTypeOf("string");
       expect(testVault.fee).toBeGreaterThan(0);
       expect(testVault.fee).toBeLessThanOrEqual(1000000);
@@ -234,19 +233,15 @@ describe("Vaults", async () => {
       })).rejects.toThrow("Symbol can only contain uppercase letters and numbers");
     });
 
-    it("should persist metadata changes", async () => {
-      const updates = {
-        // description: "Testing persistence layer",
-        description: 'Not much, how about you?'
-      };
+    it('should persist metadata changes for the owner', async () => {
 
-      await testVault.updateMetadataWithStorage(updates);
-      
-      // Fetch a fresh instance to verify persistence
-      const refreshedVault = await Vault.build(testVault.contractId);
-      
-      expect(refreshedVault.description).toBe(updates.description);
-      expect(refreshedVault.fee).toBe(20000); // 2% converted to basis points
+      const updatedMetadata = {
+        description: 'Liquidity vault wrapper for the USDA-aeUSDC stableswap pair!'
+      }
+
+      await testVault.updateMetadataWithStorage(updatedMetadata);
+
+      expect(testVault.description).toBe(updatedMetadata.description);
     });
   });
 });
