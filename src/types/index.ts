@@ -147,6 +147,7 @@ export interface ContractParams {
 export interface ExecuteOptions {
   disablePostConditions?: boolean;
   senderKey?: string;
+  sponsored?: boolean;
   fee?: number;
 
 }

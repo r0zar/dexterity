@@ -118,9 +118,9 @@ export class Router {
       const transaction = await makeContractCall({
         ...txConfig,
         senderKey: Dexterity.config.privateKey,
-        fee: options?.fee || 1000,
+        fee: options?.fee || 1000
       });
-      if (Dexterity.config.sponsored) {
+      if (options?.sponsored || Dexterity.config.sponsored) {
         return Dexterity.client.requestSponsoredTransaction(transaction.serialize());
       } else {
         return broadcastTransaction({ transaction });
@@ -130,7 +130,7 @@ export class Router {
       const { showContractCall } = await import('@stacks/connect')
       const contractCallOptions: any = {
         ...txConfig,
-        sponsored: Dexterity.config.sponsored,
+        sponsored: options?.sponsored || Dexterity.config.sponsored,
         onFinish: async (data: any) => {
           await Dexterity.client.requestSponsoredTransaction(data.txRaw)
         }

@@ -679,23 +679,57 @@ export class Vault {
   private async persistMetadata(): Promise<void> {
     const metadata = this.getMetadata();
     const uri = await this.getTokenUri();
+    if (!uri) throw new Error("No token URI configured for vault");
 
-    if (!uri) {
-      throw new Error("No token URI configured for vault");
-    }
+    const { signMessage, showSignMessage } = await import('@stacks/connect');
 
-    // Default implementation assumes charisma.rocks API endpoint
-    // This matches the URI format in CodeGen.prepareGenerationOptions
-    const response = await fetch(uri, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(metadata)
-    });
+    if (Dexterity.config.mode === "server") {
+      await signMessage({
+        message: this.contractId,
+        network: Dexterity.config.network,
+        appDetails: {
+          name: 'Charisma Metadata Storage',
+          icon: 'https://charisma.rocks/charisma.png',
+        },
+        onFinish: async (data) => {
+          const response = await fetch(uri, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-signature': data.signature,
+              'x-public-key': data.publicKey,
+            },
+            body: JSON.stringify(metadata)
+          });
+          if (!response.ok) {
+            throw new Error(`Failed to persist metadata: ${response.statusText}`);
+          }
+        }
+      });
 
-    if (!response.ok) {
-      throw new Error(`Failed to persist metadata: ${response.statusText}`);
+    } else {
+      showSignMessage({
+        message: this.contractId,
+        network: Dexterity.config.network,
+        appDetails: {
+          name: 'Charisma Metadata Storage',
+          icon: 'https://charisma.rocks/charisma.png',
+        },
+        onFinish: async (data) => {
+          const response = await fetch(uri, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-signature': data.signature,
+              'x-public-key': data.publicKey,
+            },
+            body: JSON.stringify(metadata)
+          });
+          if (!response.ok) {
+            throw new Error(`Failed to persist metadata: ${response.statusText}`);
+          }
+        }
+      });
     }
   }
 
