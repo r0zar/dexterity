@@ -307,7 +307,7 @@ export class Vault {
         const { showContractCall } = await import('@stacks/connect')
         await showContractCall({
           ...txConfig,
-          fee: options.fee || 1000,
+          fee: options.fee ?? 1000,
         });
       }
     } catch (error) {

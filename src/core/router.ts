@@ -128,11 +128,12 @@ export class Router {
     } else {
       // Client-side: use wallet to sign and broadcast
       const { showContractCall } = await import('@stacks/connect')
+      const sponsored = options?.sponsored ?? Dexterity.config.sponsored
       const contractCallOptions: any = {
         ...txConfig,
-        sponsored: options?.sponsored ?? Dexterity.config.sponsored,
+        sponsored,
         onFinish: async (data: any) => {
-          await Dexterity.client.requestSponsoredTransaction(data.txRaw)
+          if (sponsored) await Dexterity.client.requestSponsoredTransaction(data.txRaw)
         }
       }
       console.log('sponsored?', contractCallOptions.sponsored)
