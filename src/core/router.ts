@@ -130,13 +130,12 @@ export class Router {
       const { showContractCall } = await import('@stacks/connect')
       const contractCallOptions: any = {
         ...txConfig,
-        sponsored: options?.sponsored || Dexterity.config.sponsored,
+        sponsored: options?.sponsored ?? Dexterity.config.sponsored,
         onFinish: async (data: any) => {
           await Dexterity.client.requestSponsoredTransaction(data.txRaw)
         }
       }
-      console.log({contractCallOptions})
-      console.log('sponsored?', Dexterity.config.sponsored)
+      console.log('sponsored?', contractCallOptions.sponsored)
       await showContractCall(contractCallOptions);
     }
   }
