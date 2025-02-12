@@ -31,11 +31,15 @@ export class Dexterity {
   /**
    * Discover vaults and load them into the router
    */
-  static async discover({blacklist = [], serialize = false, load = true, reserves = true}: {blacklist?: ContractId[], serialize?: boolean, load?: boolean, reserves?: boolean} = {}): Promise<Partial<Vault>[]> {
+  static async discover({ blacklist = [], serialize = false, load = true, reserves = true }: { blacklist?: ContractId[], serialize?: boolean, load?: boolean, reserves?: boolean } = {}): Promise<Partial<Vault>[]> {
+    // Ensure config is loaded
+    await this.configure();
+
+    // Search for contracts with the POOL_TRAIT
     const contracts = await Dexterity.client.searchContractsByTrait(
       POOL_TRAIT,
     );
-    
+
     // Filter out blacklisted contracts
     const filteredContracts = contracts.filter(
       (contract) => !blacklist.includes(contract.contract_id)
@@ -58,7 +62,7 @@ export class Dexterity {
     if (load) this.router.loadVaults(vaults);
     return serialize ? vaults.map(v => v.toLPToken()) : vaults;
   }
-  
+
   /**
    * Token Information Methods
    */

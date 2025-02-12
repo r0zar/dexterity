@@ -132,6 +132,7 @@ export interface SDKConfig {
   routerName: string;
   parallelRequests: number;
   heliusApiKey: string;
+  retryDelay: number;
 }
 
 export interface ContractParams {

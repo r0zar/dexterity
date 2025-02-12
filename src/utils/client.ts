@@ -3,27 +3,44 @@ import { cvToValue, hexToCV, parseToCV, cvToHex } from "@stacks/transactions";
 import { TokenMetadata } from "../types";
 import { paths } from "@stacks/blockchain-api-client/lib/generated/schema";
 import { Dexterity } from "../core/sdk";
-import { STACKS_MAINNET } from "@stacks/network";
+import { getFetchOptions } from "@stacks/common";
+
+const API_ENDPOINTS = [
+  "https://api.hiro.so/",
+  "https://api.mainnet.hiro.so/",
+  "https://stacks-node-api.mainnet.stacks.co/",
+]
 
 export class StacksClient {
   private static instance: StacksClient;
   private static currentKeyIndex = 0;
-  private client: Client<paths, `${string}/${string}`>;
+  private static currentClientIndex = 0;
+  private clients: Client<paths, `${string}/${string}`>[];
 
   private constructor() {
-    this.client = createClient({
-      baseUrl: STACKS_MAINNET.client.baseUrl,
-    });
+    // Create a client for each endpoint
+    this.clients = API_ENDPOINTS.map(endpoint =>
+      createClient({ baseUrl: endpoint })
+    );
 
-    this.client.use({
-      onRequest({ request }) {
-        const apiKeys = Dexterity.config.apiKeys || [Dexterity.config.apiKey];
-        if (!apiKeys.length) return;
+    // Add API key handling middleware to each client
+    this.clients.forEach(client => {
+      client.use({
+        onRequest({ request }) {
+          const apiKeys = Dexterity.config.apiKeys || [Dexterity.config.apiKey];
+          if (!apiKeys.length) return;
 
-        const key = StacksClient.getNextApiKey(apiKeys);
-        request.headers.set("x-hiro-api-key", key);
-      },
+          const key = StacksClient.getNextApiKey(apiKeys);
+          request.headers.set("x-api-key", key);
+        },
+      });
     });
+  }
+
+  private getCurrentClient(): Client<paths, `${string}/${string}`> {
+    const client = this.clients[StacksClient.currentClientIndex];
+    StacksClient.currentClientIndex = (StacksClient.currentClientIndex + 1) % this.clients.length;
+    return client;
   }
 
   private static getNextApiKey(apiKeys: string[]): string {
@@ -66,7 +83,7 @@ export class StacksClient {
     let attempt = 0;
     while (attempt < retries) {
       try {
-        const response = await this.client.POST(
+        const response = await this.getCurrentClient().POST(
           `/v2/contracts/call-read/${address}/${name}/${method}` as any,
           { body: { sender: address, arguments: args } }
         );
@@ -79,11 +96,13 @@ export class StacksClient {
       } catch (error) {
         attempt++;
         if (attempt >= retries) {
+          console.debug(getFetchOptions());
+          console.error(error);
           throw new Error(
-            `\nFailed to call read-only method ${method} after ${retries} attempts: ${error}`
+            `\nFailed to call ${contractId} read-only method ${method} after ${retries} attempts: ${error}`
           );
         }
-        await new Promise((resolve) => setTimeout(resolve, attempt * 1000));
+        await new Promise((resolve) => setTimeout(resolve, attempt * Dexterity.config.retryDelay));
       }
     }
   }
@@ -172,12 +191,18 @@ export class StacksClient {
   }
 
   async getTokenIdentifier(contractId: string): Promise<string> {
-    const response = await this.client.GET(
-      "/extended/v1/contract/{contract_id}",
-      { params: { path: { contract_id: contractId } } }
-    );
-    const abi = JSON.parse(response.data?.abi!);
-    return abi.fungible_tokens[0].name;
+    try {
+      const response = await this.getCurrentClient().GET(
+        "/extended/v1/contract/{contract_id}",
+        { params: { path: { contract_id: contractId } } }
+      );
+      const abi = JSON.parse(response.data?.abi!);
+      return abi.fungible_tokens[0].name;
+
+    } catch (error) {
+      console.error(`\nFailed to fetch token identifier for ${contractId}:`, error);
+      return "UNKNOWN";
+    }
   }
 
   async getTotalSupply(contractId: string): Promise<number> {
@@ -225,7 +250,7 @@ export class StacksClient {
     let attempt = 0;
     while (attempt < retries) {
       try {
-        const response = await this.client.GET(
+        const response = await this.getCurrentClient().GET(
           `/extended/v1/address/${address}/stx` as any
         );
         return Number(response.data.balance);
@@ -264,12 +289,16 @@ export class StacksClient {
       'SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.a-fistful-of-dollars',
       'SP26PZG61DH667XCX51TZNBHXM4HG4M6B2HWVM47V.dmgsbtc-lp-token',
       'SP26PZG61DH667XCX51TZNBHXM4HG4M6B2HWVM47V.lp-token',
-      'SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.theyre-taking-our-jerbs'
+      'SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.theyre-taking-our-jerbs',
+      'SP23B2ZSDG9WKWPCKRERP6PV81FWNB4NECV6MKKAC.stxcha-lp-token',
+      'SP3T1M18J3VX038KSYPP5G450WVWWG9F9G6GAZA4Q.iouwelshwelsh-lp-token',
+      'SPGYCP878RYFVT03ZT8TWGPKNYTSQB1578VVXHGE.welshups-lp-token',
+      'SP39859AD7RQ6NYK00EJ8HN1DWE40C576FBDGHPA0.chabtz-lp-token'
     ];
 
     while (hasMore) {
       try {
-        const response = await this.client.GET("/extended/v1/contract/by_trait", {
+        const response = await this.getCurrentClient().GET("/extended/v1/contract/by_trait", {
           params: {
             query: {
               trait_abi: JSON.stringify(trait),
@@ -308,7 +337,7 @@ export class StacksClient {
    * Block Methods
    */
   async getCurrentBlock(): Promise<number> {
-    const response = await this.client.GET("/extended/v1/block" as any);
+    const response = await this.getCurrentClient().GET("/extended/v1/block" as any);
     return response.data.height;
   }
 }

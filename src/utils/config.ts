@@ -38,8 +38,9 @@ export const DEFAULT_SDK_CONFIG: SDKConfig = {
   preferredPools: [],
   routerAddress: "SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS",
   routerName: "multihop",
-  parallelRequests: 1,
+  parallelRequests: 10,
   heliusApiKey: "",
+  retryDelay: 3000,
 };
 
 // Single source of truth for config validation

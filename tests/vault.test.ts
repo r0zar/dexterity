@@ -7,9 +7,17 @@ import { Quote } from "../src/types";
 describe("Vaults", async () => {
   let testVault;
   beforeAll(async () => {
-    Dexterity.configure({debug: true});
+    await Dexterity.configure({ debug: true });
+    console.log(Dexterity.config);
     // Initialize with a known test pool
     testVault = await Vault.build("SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.stx-cha-vault-wrapper-alex");
+  });
+
+  describe('Data Discovery', () => {
+    it('should get token info', async () => {
+      const tokenInfo = await Dexterity.getTokenInfo("SP3M31QFF6S96215K4Y2Z9K5SGHJN384NV6YM6VM8.satoshai");
+      console.log(tokenInfo);
+    });
   });
 
   describe("Pool State", () => {
@@ -48,10 +56,10 @@ describe("Vaults", async () => {
 
     it("should handle reserve updates", async () => {
       const [initialReserve0, initialReserve1] = testVault.getReserves();
-      
+
       // Simulate a swap that would update reserves
       await testVault.quote(1000000, Opcode.swapExactAForB());
-      
+
       const [newReserve0, newReserve1] = testVault.getReserves();
       expect(newReserve0).toBeTypeOf("number");
       expect(newReserve1).toBeTypeOf("number");
@@ -79,23 +87,23 @@ describe("Vaults", async () => {
 
   describe("Contract Generation", () => {
     let baseVault: Vault;
-  
+
     beforeAll(async () => {
       baseVault = await Vault.build("SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.pontis-powerline");
     });
-  
+
     it("should generate valid contract with basic configuration", () => {
       const contract = baseVault.generateContractCode();
-      
+
       // Basic structure checks
       expect(contract).toContain("(impl-trait 'SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.charisma-traits-v1.sip010-ft-trait)");
       expect(contract).toContain("(impl-trait 'SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.dexterity-traits-v0.liquidity-pool-trait)");
-      
+
       // Check token definitions
       expect(contract).toContain(`(define-fungible-token ${baseVault.symbol})`);
       expect(contract).toContain(`(define-constant LP_REBATE u${baseVault.fee})`);
     });
-  
+
     it("should handle STX token pairs correctly", async () => {
       const stxVault = new Vault({
         contractId: "SP000.test-vault",
@@ -107,14 +115,14 @@ describe("Vaults", async () => {
         symbol: "TEST",
         fee: 3000
       });
-  
+
       const contract = stxVault.generateContractCode();
-      
+
       // Check STX-specific transfer syntax
       expect(contract).toContain("(try! (stx-transfer?");
       expect(contract).toContain("(stx-get-balance");
     });
-  
+
     it("should validate token names and symbols for Clarity compatibility", () => {
       const invalidVault = new Vault({
         contractId: "SP000.test-vault",
@@ -126,10 +134,10 @@ describe("Vaults", async () => {
           { contractId: "SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.hooter-the-owl", symbol: "TK-B", decimals: 6, reserves: 1000, name: "Token B", identifier: "b" }
         ]
       });
-  
+
       expect(() => invalidVault.generateContractCode()).toThrow();
     });
-  
+
     it("should validate fee ranges", () => {
       const invalidFeeVault = new Vault({
         contractId: "SP000.test-vault",
@@ -141,10 +149,10 @@ describe("Vaults", async () => {
           { contractId: "SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.hooter-the-owl", symbol: "TKB", decimals: 6, reserves: 1000, name: "Token B", identifier: "b" }
         ]
       });
-  
+
       expect(() => invalidFeeVault.generateContractCode()).toThrow();
     });
-  
+
     it("should handle unbalanced initial liquidity correctly", () => {
       const unbalancedVault = new Vault({
         contractId: "SP000.test-vault",
@@ -156,16 +164,16 @@ describe("Vaults", async () => {
           { contractId: "SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.hooter-the-owl", symbol: "TKB", decimals: 6, reserves: 2000, name: "Token B", identifier: "b" }
         ]
       });
-  
+
       const contract = unbalancedVault.generateContractCode();
-      
+
       // Should handle additional token transfer for imbalance
       expect(contract).toContain("(try! (contract-call? 'SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.hooter-the-owl transfer u1000");
     });
 
     describe("Hold-to-Earn Engine", () => {
       let baseVault: Vault;
-    
+
       beforeAll(async () => {
         baseVault = await Vault.build("SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.charismatic-flow");
       });
@@ -174,12 +182,12 @@ describe("Vaults", async () => {
         const contract = baseVault.generateHoldToEarnCode();
 
         console.log(contract);
-        
+
         // Check core components
         expect(contract).toContain("(define-data-var first-start-block uint stacks-block-height)");
         expect(contract).toContain("(define-map last-tap-block principal uint)");
         expect(contract).toContain("(define-public (tap)");
-        
+
         // Check trapezoid calculations
         expect(contract).toContain("(define-private (calculate-trapezoid-areas-39");
         expect(contract).toContain("(define-private (calculate-trapezoid-areas-19");
@@ -217,7 +225,7 @@ describe("Vaults", async () => {
       };
 
       await testVault.updateMetadata(updates);
-      
+
       expect(testVault.description).toBe(updates.description);
     });
 
