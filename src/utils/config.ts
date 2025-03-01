@@ -160,19 +160,17 @@ export async function loadConfig(runtimeConfig?: Partial<SDKConfig>): Promise<SD
       secretKey: process.env.SEED_PHRASE,
       password: "",
     });
-
     config.mode = "server";
     config.privateKey = wallet.accounts[0].stxPrivateKey;
     config.stxAddress = getStxAddress(wallet.accounts[0], config.network);
+  } else {
+    if (config.mode === 'server') {
+      throw new Error("Server mode requires 'SEED_PHRASE' environment variable to be set");
+    }
   }
 
   // Validate the final configuration
   const validatedConfig = ConfigSchema.parse(config);
-
-  // Additional validation for server mode
-  if (validatedConfig.mode === 'server' && (!validatedConfig.stxAddress || !validatedConfig.privateKey)) {
-    throw new Error("Server mode requires both 'stxAddress' and 'privateKey' to be configured");
-  }
 
   // Since we started with DEFAULT_SDK_CONFIG, we know we have all required fields
   return validatedConfig as SDKConfig;
