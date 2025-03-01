@@ -1,3 +1,4 @@
+import { generateWallet } from "@stacks/wallet-sdk";
 import { Dexterity } from "../src/core/sdk";
 import { describe, it, expect, beforeEach, afterAll } from "vitest";
 
@@ -19,6 +20,14 @@ describe("SDK Configuration", () => {
     process.env = { ...originalEnv };
   });
 
+  // it('should generate private key from seed phrase', async () => {
+  //   const wallet = await generateWallet({
+  //     secretKey: '',
+  //     password: "",
+  //   });
+  //   console.log(wallet.accounts[0].stxPrivateKey)
+  // });
+
   it("should accept partial config updates", async () => {
     const currentConfig = Dexterity.config;
     const newMaxHops = 4;
@@ -34,7 +43,7 @@ describe("SDK Configuration", () => {
   it("should handle multiple partial updates", async () => {
     await Dexterity.configure({ maxHops: 2 });
     await Dexterity.configure({ defaultSlippage: 0.01 });
-    
+
     const config = Dexterity.config;
     expect(config.maxHops).toBe(2);
     expect(config.defaultSlippage).toBe(0.01);
@@ -61,7 +70,7 @@ describe("SDK Configuration", () => {
   it("should prioritize runtime config over environment", async () => {
     process.env.HIRO_API_KEY = "env-api-key";
     await Dexterity.configure({ apiKey: "runtime-key" });
-    
+
     const config = Dexterity.config;
     expect(config.apiKey).toBe("runtime-key");
   });

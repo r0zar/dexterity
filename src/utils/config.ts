@@ -39,80 +39,115 @@ export const DEFAULT_SDK_CONFIG: SDKConfig = {
   routerAddress: "SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS",
   routerName: "multihop",
   parallelRequests: 10,
-  heliusApiKey: "",
   retryDelay: 3000,
 };
 
 // Single source of truth for config validation
 export const ConfigSchema = z.object({
-  network: z.enum(StacksNetworks),
+  network: z.enum(['mainnet', 'testnet'] as const),
   mode: z.enum(["client", "server"]),
-  maxHops: z.number().int().min(1).max(9),
-  defaultSlippage: z.number().min(0).max(1),
+  maxHops: z.coerce.number().int().min(1).max(9),
+  defaultSlippage: z.coerce.number().min(0).max(1),
   proxy: z.string().url(),
   apiKey: z.string().optional(),
-  apiKeys: z.array(z.string()).optional(),
-  debug: z.boolean(),
-  parallelRequests: z.number().int().min(1).max(10),
-  preferredPools: z.array(z.string()),
+  apiKeys: z.preprocess(
+    (val) => typeof val === 'string' ? val.split(',').map(v => v.trim()).filter(Boolean) : val,
+    z.array(z.string())
+  ).optional(),
+  apiKeyRotation: z.enum(["random"]).optional(),
+  debug: z.preprocess((val) => val === 'true', z.boolean()),
+  parallelRequests: z.coerce.number().int().min(1).max(10),
   routerAddress: z.string(),
   routerName: z.string(),
   privateKey: z.string().optional(),
   stxAddress: z.string().optional(),
+  sponsored: z.preprocess((val) => val === 'true', z.boolean()).optional(),
+  sponsor: z.string().url().optional(),
+  ipfsGateway: z.string().url().optional(),
+  retryDelay: z.coerce.number().int().min(0).optional(),
 }).partial();
 
 export type ValidatedConfig = z.infer<typeof ConfigSchema>;
 
-// Simple file operations
-function loadFileConfig(): Partial<SDKConfig> {
-  for (const location of CONFIG_LOCATIONS) {
-    try {
-      if (fs.existsSync(location)) {
-        return JSON.parse(fs.readFileSync(location, 'utf8'));
-      }
-    } catch (error) {
-      console.warn(`Failed to load config from ${location}`);
-    }
-  }
-  return {};
-}
+// Environment variable mapping
+const ENV_VAR_MAP = {
+  DEXTERITY_MODE: 'mode',
+  DEXTERITY_DEBUG: 'debug',
+  DEXTERITY_NETWORK: 'network',
+  DEXTERITY_MAX_HOPS: 'maxHops',
+  DEXTERITY_PROXY_URL: 'proxy',
+  DEXTERITY_DEFAULT_SLIPPAGE: 'defaultSlippage',
+  DEXTERITY_PARALLEL_REQUESTS: 'parallelRequests',
+  DEXTERITY_ROUTER_ADDRESS: 'routerAddress',
+  DEXTERITY_ROUTER_NAME: 'routerName',
+  DEXTERITY_SPONSORED: 'sponsored',
+  DEXTERITY_SPONSOR_URL: 'sponsor',
+  DEXTERITY_IPFS_GATEWAY: 'ipfsGateway',
+  DEXTERITY_RETRY_DELAY: 'retryDelay',
+  HIRO_API_KEY: 'apiKey',
+  HIRO_API_KEYS: 'apiKeys',
+  STACKS_API_KEY: 'apiKey', // Fallback for legacy support
+  STX_ADDRESS: 'stxAddress',
+  PRIVATE_KEY: 'privateKey',
+} as const;
 
 // Simple environment config loading
 function loadEnvironmentConfig(): Partial<SDKConfig> {
-  const config: Partial<SDKConfig> = {};
+  const envConfig: Record<string, unknown> = {};
+  const warnings: string[] = [];
 
+  // Map environment variables to config keys
+  for (const [envKey, configKey] of Object.entries(ENV_VAR_MAP)) {
+    const value = process.env[envKey];
+    if (value) {
+      envConfig[configKey] = value;
+    }
+  }
+
+  // Special handling for API keys to maintain priority
   if (process.env.HIRO_API_KEYS) {
-    config.apiKeys = process.env.HIRO_API_KEYS.split(',').filter(Boolean);
-    config.apiKey = config.apiKeys[0];
+    const apiKeys = process.env.HIRO_API_KEYS.split(',').map(v => v.trim()).filter(Boolean);
+    envConfig.apiKeys = apiKeys;
+    if (apiKeys.length > 0) {
+      envConfig.apiKey = apiKeys[0];
+    }
   } else if (process.env.HIRO_API_KEY || process.env.STACKS_API_KEY) {
     const key = process.env.HIRO_API_KEY || process.env.STACKS_API_KEY;
-    config.apiKey = key;
-    config.apiKeys = [key!];
+    if (key) {
+      envConfig.apiKey = key;
+      envConfig.apiKeys = [key];
+    }
   }
 
-  if (process.env.HELIUS_API_KEY) {
-    config.heliusApiKey = process.env.HELIUS_API_KEY;
+  try {
+    return ConfigSchema.parse(envConfig) as Partial<SDKConfig>;
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      warnings.push(...error.errors.map(e => `Invalid configuration: ${e.path.join('.')}: ${e.message}`));
+    }
+    // Log warnings if debug is enabled in process.env
+    if (process.env.DEXTERITY_DEBUG === 'true') {
+      console.warn('Configuration warnings:', warnings);
+    }
+    // Return partial valid config
+    return ConfigSchema.parse(envConfig) as Partial<SDKConfig>;
   }
-
-  return config;
 }
 
 // Load and validate configuration
 export async function loadConfig(runtimeConfig?: Partial<SDKConfig>): Promise<SDKConfig> {
+  // Start with default config to ensure all required fields
   const config = {
+    ...DEFAULT_SDK_CONFIG,
     ...Dexterity.config,
     ...loadEnvironmentConfig(),
-    ...loadFileConfig(),
     ...runtimeConfig
-  };
+  } as SDKConfig;
 
   // Set mode based on environment if not explicitly specified
   if (!runtimeConfig?.mode) {
     config.mode = isNode ? 'server' : 'client';
   }
-
-  // Validate with Zod
-  ConfigSchema.parse(config);
 
   // Prevent loading @stacks/connect in Node environment
   if (isNode && config.mode === 'client') {
@@ -131,5 +166,14 @@ export async function loadConfig(runtimeConfig?: Partial<SDKConfig>): Promise<SD
     config.stxAddress = getStxAddress(wallet.accounts[0], config.network);
   }
 
-  return config;
+  // Validate the final configuration
+  const validatedConfig = ConfigSchema.parse(config);
+
+  // Additional validation for server mode
+  if (validatedConfig.mode === 'server' && (!validatedConfig.stxAddress || !validatedConfig.privateKey)) {
+    throw new Error("Server mode requires both 'stxAddress' and 'privateKey' to be configured");
+  }
+
+  // Since we started with DEFAULT_SDK_CONFIG, we know we have all required fields
+  return validatedConfig as SDKConfig;
 }

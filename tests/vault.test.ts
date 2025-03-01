@@ -3,6 +3,8 @@ import { Dexterity } from "../src/core/sdk";
 import { Vault } from "../src/core/vault";
 import { Opcode } from "../src/core/opcode";
 import { Quote } from "../src/types";
+import { broadcastTransaction, Cl, cvToHex, makeContractCall, parseToCV, PostConditionMode } from "@stacks/transactions";
+import { intCV } from "@stacks/transactions";
 
 describe("Vaults", async () => {
   let testVault;
@@ -200,6 +202,77 @@ describe("Vaults", async () => {
       //   const result = await baseVault.deployHoldToEarnContract();
       //   console.log(result);
       // });
+    });
+  });
+
+  describe('Prediction Market', async () => {
+
+    it('should get owner', async () => {
+      const result = await Dexterity.client.callReadOnly(
+        "SP2D5BGGJ956A635JG7CJQ59FTRFRB0893514EZPJ.prediction-markets-vault",
+        "get-owner",
+        [cvToHex(parseToCV("1", "uint128"))]
+      );
+      console.log(result);
+    });
+
+    it('should get market info', async () => {
+      const result = await Dexterity.client.callReadOnly(
+        "SP2D5BGGJ956A635JG7CJQ59FTRFRB0893514EZPJ.prediction-markets-vault",
+        "get-market-info",
+        [cvToHex(parseToCV("0", "uint128"))]
+      );
+      console.log(result);
+    });
+
+    it('should resolve market', async () => {
+      const transaction = await makeContractCall({
+        contractAddress: 'SP2D5BGGJ956A635JG7CJQ59FTRFRB0893514EZPJ',
+        contractName: 'prediction-markets-vault',
+        functionName: 'resolve-market',
+        functionArgs: [Cl.uint(0), Cl.uint(0)],
+        postConditionMode: PostConditionMode.Allow,
+        senderKey: Dexterity.config.privateKey,
+        fee: 1000,
+      });
+      const result = await broadcastTransaction({ transaction });
+      console.log(result);
+    });
+
+    it('should quote reward', async () => {
+      const result = await Dexterity.client.callReadOnly(
+        "SP2D5BGGJ956A635JG7CJQ59FTRFRB0893514EZPJ.prediction-markets-vault",
+        "quote-reward",
+        [cvToHex(parseToCV("1", "uint128"))]
+      );
+      console.log(result);
+    });
+
+    it('should claim reward', async () => {
+      const transaction = await makeContractCall({
+        contractAddress: 'SP2D5BGGJ956A635JG7CJQ59FTRFRB0893514EZPJ',
+        contractName: 'prediction-markets-vault',
+        functionName: 'claim-reward',
+        functionArgs: [Cl.uint(2)],
+        postConditionMode: PostConditionMode.Allow,
+        senderKey: Dexterity.config.privateKey,
+        fee: 1000,
+      });
+      const result = await broadcastTransaction({ transaction });
+      console.log(result);
+    });
+  });
+
+  describe("Prediction Contract Generation", () => {
+
+    it("should generate valid prediction contract", async () => {
+      const contract = Vault.generatePredictionContractCode("prediction-test");
+      console.log(contract);
+    });
+
+    it("should deploy prediction contract", { skip: true }, async () => {
+      const result = await Vault.deployPredictionContract("prediction-markets-vault");
+      console.log(result);
     });
   });
 

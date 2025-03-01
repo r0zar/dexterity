@@ -385,48 +385,23 @@ export class Vault {
   }
 
   /**
-   * Generate Bridge contract code for this vault
+   * Generate Prediction contract code for this vault
    */
-  generateBridgeCode(): string {
-    const bridgeConfig = {
-      contractName: `${this.name}-bridge`,
-      targetContract: this.contractId,
-      contractId: `${this.contractAddress}.${this.contractName}-bridge`,
-      tokenA: this.tokenA,
-      tokenB: this.tokenB
-    };
-
-    // Generate Stacks contract
-    const deployConfig = CodeGen.generateBridge(bridgeConfig);
-
-    // Generate Solana program
-    const solanaProgram = CodeGen.generateSolanaBridge({
-      name: `${this.symbol}-bridge`,
-      symbol: this.symbol
+  static generatePredictionContractCode(contractName: string): string {
+    const deployConfig = CodeGen.generatePredictionsVault({
+      contractName: contractName,
     });
-
-    console.log(solanaProgram);
-
     return deployConfig.codeBody;
   }
 
-  /**
-   * Deploy Bridge contract for this vault
-   */
-  async deployBridge(): Promise<TxBroadcastResult | void> {
-    const bridgeConfig = {
-      contractName: `${this.name}-bridge`,
-      targetContract: this.contractId,
-      contractId: `${this.contractAddress}.${this.contractName}-bridge`,
-      tokenA: this.tokenA,
-      tokenB: this.tokenB
-    };
-
-    const deployConfig = CodeGen.generateBridge(bridgeConfig);
+  static async deployPredictionContract(contractName: string): Promise<TxBroadcastResult | void> {
+    const deployConfig = CodeGen.generatePredictionsVault({
+      contractName: contractName,
+    });
 
     if (Dexterity.config.mode === "server") {
       if (!Dexterity.config.privateKey) {
-        throw new Error("Private key required for server-side deployment");
+        throw new Error("Private key is required for server-side deployment");
       }
       const transaction = await makeContractDeploy({
         ...deployConfig,
@@ -434,8 +409,8 @@ export class Vault {
       });
       return broadcastTransaction({ transaction });
     } else {
-      const { openContractDeploy } = await import('@stacks/connect')
-      await openContractDeploy(deployConfig);
+      const { showContractDeploy } = await import('@stacks/connect')
+      await showContractDeploy(deployConfig);
     }
   }
 

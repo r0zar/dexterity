@@ -16,6 +16,10 @@ interface ContractGenerationOptions {
   tokenUri: string;
 }
 
+interface PredictionContractGenerationOptions {
+  contractName: string;
+}
+
 interface HoldToEarnOptions {
   contractName: string;
   targetContract: string;
@@ -87,6 +91,18 @@ export class CodeGen {
     }
   }
 
+  static generatePredictionsVault(options: PredictionContractGenerationOptions): any {
+    return {
+      contractName: options.contractName,
+      codeBody: this.generatePredictionContract(),
+      postConditions: [],
+      postConditionMode: PostConditionMode.Deny,
+      network: Dexterity.config.network,
+      fee: 50000,
+      clarityVersion: 3
+    };
+  }
+
   /**
    * Generates the Clarity contract code for a liquidity pool
    */
@@ -118,7 +134,7 @@ export class CodeGen {
       ],
       network: Dexterity.config.network,
       postConditionMode: PostConditionMode.Deny,
-      fee: 300000,
+      fee: 50000,
       clarityVersion: 3
     }
   }
@@ -137,6 +153,398 @@ export class CodeGen {
       contractId: config.contractId,
       tokenUri: `https://charisma.rocks/api/v0/metadata/${config.contractId}`
     };
+  }
+
+  private static generatePredictionContract(): string {
+    return `;; Title: Blaze Prediction Market Vault
+;; Version: 1.0.0
+;; Description: 
+;;   Implementation of a prediction market vault for the Stacks blockchain.
+;;   Allows users to create markets, make predictions, and claim rewards.
+;;   Market resolution is controlled by the vault deployer or authorized admins.
+;;   Each prediction is tracked as a non-fungible token receipt.
+
+;; Traits
+;; (impl-trait 'SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.betting-traits-v0.betting-vault-trait)
+;; (impl-trait 'SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.nft-trait.nft-trait)
+
+;; Constants
+(define-constant DEPLOYER tx-sender)
+(define-constant CONTRACT (as-contract tx-sender))
+(define-constant ERR_UNAUTHORIZED (err u403))
+(define-constant ERR_INVALID_OPERATION (err u400))
+(define-constant ERR_MARKET_EXISTS (err u401))
+(define-constant ERR_MARKET_NOT_FOUND (err u404))
+(define-constant ERR_MARKET_CLOSED (err u405))
+(define-constant ERR_MARKET_NOT_RESOLVED (err u406))
+(define-constant ERR_NOT_WINNER (err u408))
+(define-constant ERR_INVALID_OUTCOME (err u409))
+(define-constant ERR_INVALID_TOKEN_ID (err u410))
+(define-constant ERR_NO_PREDICTION (err u411))
+(define-constant ERR_PREDICTION_NOT_FOUND (err u412))
+(define-constant PRECISION u1000000)
+(define-constant ADMIN_FEE u50000)   ;; 5% fee to admin who resolves the market
+
+;; Opcodes (0xA* range to avoid LP conflicts)
+(define-constant OP_PREDICT 0xA1)    ;; Make a prediction
+(define-constant OP_CLAIM_REWARD 0xA3)  ;; Claim rewards
+
+;; Define NFT for prediction receipts
+(define-non-fungible-token prediction-receipt uint)
+
+;; Data structures
+(define-map markets uint {
+  creator: principal,
+  name: (string-ascii 64),
+  description: (string-ascii 128),
+  outcome-names: (list 16 (string-ascii 32)),
+  outcome-pools: (list 16 uint),
+  total-pool: uint,
+  is-open: bool,
+  is-resolved: bool,
+  winning-outcome: uint,
+  resolver: (optional principal),  ;; Admin who resolved the market
+  creation-time: uint,
+  resolution-time: uint
+})
+
+;; Map to track receipts by receipt ID (no predictor field)
+(define-map predictions uint {
+  market-id: uint,
+  outcome-id: uint,
+  amount: uint
+})
+
+;; Map for authorized oracles/admins
+(define-map authorized-admins principal bool)
+
+;; Next token ID counter
+(define-data-var next-receipt-id uint u1)
+
+;; Token metadata URI
+(define-data-var token-uri (string-utf8 256) u"https://charisma.rocks/sip9/predictions/receipt.json")
+
+;; --- NFT Trait Functions ---
+
+(define-public (transfer (receipt-id uint) (sender principal) (recipient principal))
+    (begin
+        (asserts! (is-eq tx-sender sender) ERR_UNAUTHORIZED)
+        (nft-transfer? prediction-receipt receipt-id sender recipient)
+    ))
+
+(define-read-only (get-last-token-id)
+    (ok (- (var-get next-receipt-id) u1)))
+
+(define-read-only (get-token-uri (token-id uint))
+    (ok (some (var-get token-uri))))
+
+(define-public (set-token-uri (new-uri (string-utf8 256)))
+    (begin
+        (asserts! (is-eq tx-sender DEPLOYER) ERR_UNAUTHORIZED)
+        (ok (var-set token-uri new-uri))
+    ))
+
+(define-read-only (get-owner (token-id uint))
+    (ok (nft-get-owner? prediction-receipt token-id)))
+
+;; --- Core Functions ---
+
+;; (define-public (execute (amount uint) (opcode (optional (buff 16))))
+;;     (let (
+;;         (op-buffer (default-to 0x00 opcode))
+;;         (op-type (get-byte op-buffer u0))
+;;         (market-id (get-byte op-buffer u1))
+;;         (outcome-id (get-byte op-buffer u2))
+;;         (receipt-id amount))
+;;         (if (is-eq op-type (buff-to-uint-le OP_PREDICT)) (make-prediction market-id outcome-id amount)
+;;         (if (is-eq op-type (buff-to-uint-le OP_CLAIM_REWARD)) (claim-reward receipt-id)
+;;         ERR_INVALID_OPERATION))))
+
+(define-read-only (quote (amount uint) (opcode (optional (buff 16))))
+    (let (
+        (op-buffer (default-to 0x00 opcode))
+        (op-type (get-byte op-buffer u0))
+        (market-id (get-byte op-buffer u1))
+        (outcome-id (get-byte op-buffer u2))
+        (receipt-id amount))
+        (if (is-eq op-type (buff-to-uint-le OP_PREDICT)) (quote-prediction market-id outcome-id)
+        (if (is-eq op-type (buff-to-uint-le OP_CLAIM_REWARD)) (quote-reward receipt-id)
+        ERR_INVALID_OPERATION))))
+
+;; --- Market Management Functions ---
+
+;; Create a new prediction market (standard function, not an opcode)
+(define-public (create-market 
+    (market-id uint) 
+    (name (string-ascii 64)) 
+    (description (string-ascii 128))
+    (outcome-names (list 16 (string-ascii 32))))
+    (begin
+        ;; Check if market ID already exists
+        (asserts! (is-none (map-get? markets market-id)) ERR_MARKET_EXISTS)
+        
+        ;; Initialize empty outcome pools
+        (let ((empty-pools (list 
+            u0 u0 u0 u0 u0 u0 u0 u0
+            u0 u0 u0 u0 u0 u0 u0 u0)))
+            
+            ;; Create a new prediction market
+            (map-set markets market-id {
+                creator: tx-sender,
+                name: name,
+                description: description,
+                outcome-names: outcome-names,
+                outcome-pools: empty-pools,
+                total-pool: u0,
+                is-open: true,
+                is-resolved: false,
+                winning-outcome: u0,
+                resolver: none,
+                creation-time: stacks-block-height,
+                resolution-time: u0
+            })
+            
+            (ok {
+                market-id: market-id,
+                creator: tx-sender,
+                creation-time: stacks-block-height
+            })
+        )
+    )
+)
+
+;; Close a market (no more predictions allowed)
+(define-public (close-market (market-id uint))
+    (let ((market (unwrap! (map-get? markets market-id) ERR_MARKET_NOT_FOUND)))
+        ;; Only vault deployer or authorized admin can close
+        (asserts! (or 
+            (is-eq tx-sender DEPLOYER)
+            (default-to false (map-get? authorized-admins tx-sender))) 
+            ERR_UNAUTHORIZED)
+        
+        ;; Update market status
+        (map-set markets market-id (merge market { is-open: false }))
+        
+        (ok true)
+    )
+)
+
+;; Resolve a market (determine correct outcome)
+(define-public (resolve-market (market-id uint) (winning-outcome uint))
+    (let (
+        (sender tx-sender)
+        (market (unwrap! (map-get? markets market-id) ERR_MARKET_NOT_FOUND))
+        (admin-fee (/ (* (get total-pool market) ADMIN_FEE) PRECISION))  ;; Calculate 5% fee
+    )
+        ;; Only vault deployer or authorized admin can resolve
+        (asserts! (or 
+            (is-eq sender DEPLOYER)
+            (default-to false (map-get? authorized-admins sender))) 
+            ERR_UNAUTHORIZED)
+        
+        ;; Check that outcome is valid
+        (asserts! (< winning-outcome (len (get outcome-names market))) ERR_INVALID_OUTCOME)
+
+        ;; Pay admin fee directly to resolver
+        (try! (as-contract (stx-transfer? admin-fee CONTRACT sender)))
+        
+        ;; Update market state
+        (map-set markets market-id (merge market {
+            is-open: false,
+            is-resolved: true,
+            winning-outcome: winning-outcome,
+            resolver: (some sender),
+            resolution-time: stacks-block-height
+        }))
+        
+        (ok true)
+    )
+)
+
+;; --- Execute Functions ---
+
+(define-public (make-prediction (market-id uint) (outcome-id uint) (amount uint))
+    (let (
+        (sender tx-sender)
+        (market (unwrap! (map-get? markets market-id) ERR_MARKET_NOT_FOUND))
+        (receipt-id (var-get next-receipt-id)))
+        
+        ;; Verify market is open
+        (asserts! (get is-open market) ERR_MARKET_CLOSED)
+        
+        ;; Verify outcome ID is valid
+        (asserts! (< outcome-id (len (get outcome-names market))) ERR_INVALID_OUTCOME)
+        
+        ;; Transfer STX to contract
+        (try! (stx-transfer? amount sender CONTRACT))
+
+        ;; Store receipt data without predictor field
+        (map-set predictions receipt-id {
+            market-id: market-id,
+            outcome-id: outcome-id,
+            amount: amount
+        })
+        
+        ;; Mint NFT receipt
+        (try! (nft-mint? prediction-receipt receipt-id sender))
+        
+        ;; Update outcome pools
+        (let (
+            (current-pools (get outcome-pools market))
+            (current-pool (default-to u0 (element-at? current-pools outcome-id)))
+            (updated-pool (+ current-pool amount))
+            (updated-pools (replace-at? current-pools outcome-id updated-pool)))
+            
+            ;; Update market state
+            (map-set markets market-id (merge market {
+                outcome-pools: (unwrap-panic updated-pools),
+                total-pool: (+ (get total-pool market) amount)
+            }))
+            
+            ;; Increment receipt ID counter
+            (var-set next-receipt-id (+ receipt-id u1))
+            
+            (ok {
+                dx: market-id,
+                dy: updated-pool,
+                dk: receipt-id
+            })
+        )
+    )
+)
+
+(define-public (claim-reward (receipt-id uint))
+    (let (
+        (sender tx-sender)
+        (reward-quote (unwrap-panic (quote-reward receipt-id)))
+        (total-reward (get dy reward-quote)))
+        
+        ;; Verify user owns the NFT receipt
+        (asserts! (is-eq (some sender) (nft-get-owner? prediction-receipt receipt-id)) ERR_UNAUTHORIZED)
+
+        ;; Verify has rewards
+        (asserts! (> total-reward u0) ERR_NOT_WINNER)
+        
+        ;; Transfer reward to user
+        (try! (as-contract (stx-transfer? total-reward CONTRACT sender)))
+        
+        ;; Burn the NFT receipt (marks as claimed)
+        (try! (nft-burn? prediction-receipt receipt-id sender))
+                
+        (ok {
+            dx: (get dx reward-quote),
+            dy: total-reward,
+            dk: receipt-id
+        })
+    )
+)
+
+;; --- Quote Functions ---
+
+(define-read-only (quote-prediction (market-id uint) (outcome-id uint))
+    (match (map-get? markets market-id)
+        market 
+        (if (not (get is-open market))
+            (ok {
+                dx: u0,
+                dy: u0,
+                dk: u0
+            })
+            (let (
+                (outcome-pools (get outcome-pools market))
+                (outcome-pool (default-to u0 (element-at? outcome-pools outcome-id))))
+                (ok {
+                    dx: market-id,
+                    dy: outcome-pool,  ;; Current pool for this outcome
+                    dk: (get total-pool market)  ;; Total pool across all outcomes
+                })
+            ))
+        ERR_MARKET_NOT_FOUND)
+)
+
+(define-read-only (quote-reward (receipt-id uint))
+    (let (
+        (prediction (unwrap! (map-get? predictions receipt-id) ERR_PREDICTION_NOT_FOUND))
+        (market-id (get market-id prediction))
+        (market (unwrap! (map-get? markets market-id) ERR_MARKET_NOT_FOUND)))
+        
+        ;; Verify market is resolved
+        (if (get is-resolved market)
+            (let (
+                (outcome-id (get outcome-id prediction))
+                (amount (get amount prediction))
+                (total-pot (get total-pool market))
+                (winning-outcome (get winning-outcome market))
+                (winning-pool (default-to u0 (element-at? (get outcome-pools market) winning-outcome))))
+                
+                ;; Calculate reward with fee deduction in one step to preserve precision
+                ;; First multiply by (PRECISION - ADMIN_FEE) to apply 95% factor
+                ;; Then divide by PRECISION to normalize
+                ;; This is equivalent to: (amount * total_pot * 0.95) / winning_pool
+                (let (
+                    (net-reward (if (and (is-eq outcome-id winning-outcome) (> winning-pool u0)) 
+                                  (/ (* (* amount total-pot) (- PRECISION ADMIN_FEE)) (* winning-pool PRECISION))
+                                  u0)))
+                    
+                    (ok {
+                        dx: market-id,
+                        dy: net-reward,
+                        dk: receipt-id
+                    })
+                )
+            )
+            (ok {
+                dx: market-id,
+                dy: u0,
+                dk: u0
+            })
+        )
+    )
+)
+
+;; --- Helper Functions ---
+
+(define-read-only (get-byte (opcode (buff 16)) (position uint))
+   (buff-to-uint-le (default-to 0x00 (element-at? opcode position))))
+
+;; --- Admin Functions ---
+
+(define-public (add-admin (admin principal))
+    (begin
+        (asserts! (is-eq tx-sender DEPLOYER) ERR_UNAUTHORIZED)
+        (ok (map-set authorized-admins admin true))
+    )
+)
+
+(define-public (remove-admin (admin principal))
+    (begin
+        (asserts! (is-eq tx-sender DEPLOYER) ERR_UNAUTHORIZED)
+        (ok (map-set authorized-admins admin false))
+    )
+)
+
+;; --- Market Info Functions ---
+
+(define-read-only (get-market-info (market-id uint))
+    (match (map-get? markets market-id)
+        market (ok market)
+        ERR_MARKET_NOT_FOUND)
+)
+
+(define-read-only (get-receipt-info (receipt-id uint))
+    (match (map-get? predictions receipt-id)
+        receipt 
+        (match (nft-get-owner? prediction-receipt receipt-id)
+            owner (ok (merge receipt { predictor: owner }))
+            (err ERR_INVALID_TOKEN_ID))
+        (err ERR_INVALID_TOKEN_ID))
+)
+
+;; --- Initialization ---
+(begin
+    ;; Initialize admin
+    (map-set authorized-admins DEPLOYER true)
+)`;
   }
 
   private static generateMainContract(options: ContractGenerationOptions): string {
@@ -574,196 +982,5 @@ ${this.generateBalanceIntegrals()}
         (if (>= block-difference (get threshold-9-point thresholds)) (calculate-balance-integral-9 address start-block end-block)
         (if (>= block-difference (get threshold-5-point thresholds)) (calculate-balance-integral-5 address start-block end-block)
         (calculate-balance-integral-2 address start-block end-block)))))))`;
-  }
-
-  /**
-   * Generates a Bridge contract for a given vault
-   */
-  static generateBridge(config: any): any {
-    const contract = `
-    ;; Title: Bridge Token Contract for ${config.name}
-    ;; Version: 1.0.0
-    
-    ;; Implement SIP010 trait
-    (impl-trait 'SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.charisma-traits-v1.sip010-ft-trait)
-    (define-data-var token-uri (optional (string-utf8 256)) (some u"${config.tokenUri}"))
-
-    ;; Define token
-    (define-fungible-token ${config.symbol})
-    
-    ;; Constants
-    (define-constant CONTRACT_OWNER tx-sender)
-    (define-constant ERR_OWNER_ONLY (err u100))
-    (define-constant ERR_NOT_TOKEN_OWNER (err u101))
-    
-    ;; Authorization check
-    (define-private (is-contract-owner)
-      (is-eq tx-sender CONTRACT_OWNER))
-
-    ;; SIP010 transfer function
-    (define-public (transfer (amount uint) (from principal) (to principal) (memo (optional (buff 34))))
-      (begin
-        (asserts! (is-eq tx-sender from) ERR_NOT_TOKEN_OWNER)
-        (try! (ft-transfer? ${config.symbol} amount from to))
-        (match memo to-print (print to-print) 0x)
-        (ok true)))
-
-    ;; Bridge functions - restricted to contract owner
-    (define-public (mint (amount uint) (recipient principal))
-      (begin
-        (asserts! (is-contract-owner) ERR_OWNER_ONLY)
-        (ft-mint? ${config.symbol} amount recipient)))
-
-    (define-public (burn (amount uint) (owner principal))
-      (begin
-        (asserts! (is-contract-owner) ERR_OWNER_ONLY)
-        (ft-burn? ${config.symbol} amount owner)))
-
-    ;; Read only functions
-    (define-read-only (get-name)
-      (ok "${config.name}"))
-
-    (define-read-only (get-symbol)
-      (ok "${config.symbol}"))
-
-    (define-read-only (get-decimals)
-      (ok u${config.decimals}))
-
-    (define-read-only (get-balance (who principal))
-      (ok (ft-get-balance ${config.symbol} who)))
-
-    (define-read-only (get-total-supply)
-      (ok (ft-get-supply ${config.symbol})))
-
-    (define-read-only (get-token-uri)
-      (ok (var-get token-uri))))`;
-
-    const [, name] = config.contractId.split(".");
-
-    return {
-      contractName: name,
-      codeBody: contract,
-      network: Dexterity.config.network,
-      postConditionMode: PostConditionMode.Deny,
-      fee: 250000,
-      clarityVersion: 3
-    };
-  }
-
-  static generateSolanaBridge(config: {
-    name: string;
-    symbol: string;
-  }): any {
-    const program = `use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token, TokenAccount, Mint, Transfer};
-
-declare_id!("PLACEHOLDER_PROGRAM_ID");
-
-#[program]
-pub mod ${config.name.toLowerCase().replace(/-/g, '_')} {
-    use super::*;
-
-    // Anyone can lock tokens by sending to bridge custody
-    pub fn lock(ctx: Context<Lock>, amount: u64) -> Result<()> {
-        let cpi_accounts = Transfer {
-            from: ctx.accounts.from.to_account_info(),
-            to: ctx.accounts.custody.to_account_info(),
-            authority: ctx.accounts.owner.to_account_info(),
-        };
-        let cpi_program = ctx.accounts.token_program.to_account_info();
-        token::transfer(cpi_ctx, amount)?;
-
-        emit!(LockEvent {
-            from: ctx.accounts.owner.key(),
-            amount,
-            timestamp: Clock::get()?.unix_timestamp,
-        });
-        Ok(())
-    }
-
-    // Only custodian can unlock tokens
-    pub fn unlock(ctx: Context<Unlock>, amount: u64) -> Result<()> {
-        let cpi_accounts = Transfer {
-            from: ctx.accounts.custody.to_account_info(),
-            to: ctx.accounts.to.to_account_info(),
-            authority = ctx.accounts.custodian.to_account_info(),
-        };
-        let cpi_program = ctx.accounts.token_program.to_account_info();
-        token::transfer(cpi_ctx, amount)?;
-        Ok(())
-    }
-}
-
-#[derive(Accounts)]
-pub struct Lock<'info> {
-    pub owner: Signer<'info>,
-    #[account(mut)]
-    pub from: Account<'info, TokenAccount>,
-    #[account(mut)]
-    pub custody: Account<'info, TokenAccount>,
-    pub token_program: Program<'info, Token>,
-}
-
-#[derive(Accounts)]
-pub struct Unlock<'info> {
-    pub custodian: Signer<'info>,
-    #[account(mut)]
-    pub custody: Account<'info, TokenAccount>,
-    #[account(mut)]
-    pub to: Account<'info, TokenAccount>,
-    pub token_program: Program<'info, Token>,
-}
-
-#[event]
-pub struct LockEvent {
-    pub from: Pubkey,
-    pub amount: u64,
-    pub timestamp: i64,
-}`;
-
-    return {
-      name: config.name,
-      program,
-      idl: {
-        version: "0.1.0",
-        name: config.name,
-        instructions: [
-          {
-            name: "lock",
-            accounts: [
-              { name: "owner", isMut: false, isSigner: true },
-              { name: "from", isMut: true, isSigner: false },
-              { name: "custody", isMut: true, isSigner: false },
-              { name: "tokenProgram", isMut: false, isSigner: false }
-            ],
-            args: [
-              { name: "amount", type: "u64" }
-            ]
-          },
-          {
-            name: "unlock",
-            accounts: [
-              { name: "custodian", isMut: false, isSigner: true },
-              { name: "custody", isMut: true, isSigner: false },
-              { name: "to", isMut: true, isSigner: false },
-              { name: "tokenProgram", isMut: false, isSigner: false }
-            ],
-            args: [
-              { name: "amount", type: "u64" }
-            ]
-          }
-        ],
-        events: [
-          {
-            name: "LockEvent",
-            fields: [
-              { name: "from", type: "publicKey" },
-              { name: "amount", type: "u64" },
-              { name: "timestamp", type: "i64" }
-            ]
-          }
-        ]
-      }
-    };
   }
 } 
