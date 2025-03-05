@@ -1,6 +1,6 @@
 {
   "name": "dexterity-sdk",
-  "version": "0.8.17",
+  "version": "0.8.18",
   "description": "SDK and CLI for interacting with Dexterity AMM protocol",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -57,13 +57,13 @@
     "@types/node": "^20.0.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
-    "@vitest/coverage-v8": "^1.0.0",
+    "@vitest/coverage-v8": "^3.0.7",
     "cross-fetch": "^4.0.0",
     "eslint": "^8.0.0",
     "prettier": "^3.0.0",
     "rimraf": "^6.0.1",
     "tsx": "^4.7.0",
     "typescript": "^5.0.0",
-    "vitest": "^1.0.0"
+    "vitest": "^3.0.7"
   }
 }
