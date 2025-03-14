@@ -142,52 +142,171 @@ export class StacksClient {
   }
 
   async getTokenMetadata(contractId: string): Promise<TokenMetadata> {
-    const { value } = await this.callReadOnly(contractId, "get-token-uri");
+    try {
+      // First, try to get the token URI from the contract
+      const result = await this.callReadOnly(contractId, "get-token-uri").catch(error => {
+        console.warn(`Failed to get token URI for ${contractId}: ${error}`);
+        return { value: null };
+      });
 
-    if (!value) {
-      console.error(`\nNo token URI found for ${contractId}`);
+      if (!result || !result.value) {
+        // No token URI available, try to get token info directly
+        return this.constructMetadataFromDirectCalls(contractId);
+      }
+
+      // Handle IPFS URIs
+      let uri = result.value;
+      if (uri.startsWith('ipfs://')) {
+        const ipfsGateway = Dexterity.config.ipfsGateway || 'https://ipfs.io/';
+        uri = uri.replace('ipfs://', ipfsGateway);
+      }
+
+      // Try to fetch the metadata
+      let response;
+      try {
+        response = await fetch(uri);
+      } catch (error) {
+        console.warn(`Failed to fetch from ${uri}: ${error}`);
+        return this.constructMetadataFromDirectCalls(contractId);
+      }
+
+      if (!response.ok) {
+        console.warn(`Failed to fetch metadata from ${uri}: ${response.status}`);
+        return this.constructMetadataFromDirectCalls(contractId);
+      }
+
+      // Parse the JSON metadata
+      try {
+        const metadata = await response.json();
+        return metadata;
+      } catch (error) {
+        console.warn(`Failed to parse metadata JSON from ${uri}: ${error}`);
+        return this.constructMetadataFromDirectCalls(contractId);
+      }
+    } catch (error) {
+      console.error(`Complete metadata retrieval failed for ${contractId}: ${error}`);
+      return this.getFallbackMetadata(contractId);
+    }
+  }
+
+  /**
+   * Construct metadata by making direct calls to token functions
+   */
+  private async constructMetadataFromDirectCalls(contractId: string): Promise<TokenMetadata> {
+    console.log(`Attempting to construct metadata directly for ${contractId}`);
+
+    try {
+      // Try to get basic token info directly from standard contract methods
+      const [symbol, name, decimals, tokenAContract, tokenBContract] = await Promise.all([
+        this.getTokenSymbol(contractId).catch(() => "Unknown"),
+        this.getTokenName(contractId).catch(() => "Unknown LP Token"),
+        this.getTokenDecimals(contractId).catch(() => 6),
+        this.getPoolTokenContractA(contractId).catch(() => ""),
+        this.getPoolTokenContractB(contractId).catch(() => "")
+      ]);
+
       return {
-        identifier: "Unknown",
-        symbol: "Unknown",
-        decimals: 6,
-        name: "Unknown",
-        description: "No token URI found for this contract",
+        identifier: symbol,
+        symbol,
+        name,
+        decimals: Number(decimals),
+        description: `LP Token for ${symbol} pool`,
         image: "",
         properties: {
-          tokenAContract: "",
-          tokenBContract: "",
-          lpRebatePercent: 0,
-        },
+          tokenAContract,
+          tokenBContract,
+          lpRebatePercent: 0.3, // Default 0.3% fee
+        }
       };
+    } catch (error) {
+      console.error(`Failed to construct metadata from direct calls for ${contractId}: ${error}`);
+      return this.getFallbackMetadata(contractId);
+    }
+  }
+
+  /**
+   * Get token A contract from pool (fallback method)
+   */
+  private async getPoolTokenContractA(contractId: string): Promise<string> {
+    try {
+      // Try common function names for getting token contracts
+      const methods = ["get-token-a", "get-token-x"];
+
+      for (const method of methods) {
+        try {
+          const result = await this.callReadOnly(contractId, method);
+          if (result) return result;
+        } catch (e) {
+          // Continue to next method
+        }
+      }
+
+      throw new Error("No token A contract found");
+    } catch (error) {
+      console.warn(`Failed to get token A for ${contractId}: ${error}`);
+      return "";
+    }
+  }
+
+  /**
+   * Get token B contract from pool (fallback method)
+   */
+  private async getPoolTokenContractB(contractId: string): Promise<string> {
+    try {
+      // Try common function names for getting token contracts
+      const methods = ["get-token-b", "get-token-y"];
+
+      for (const method of methods) {
+        try {
+          const result = await this.callReadOnly(contractId, method);
+          if (result) return result;
+        } catch (e) {
+          // Continue to next method
+        }
+      }
+
+      throw new Error("No token B contract found");
+    } catch (error) {
+      console.warn(`Failed to get token B for ${contractId}: ${error}`);
+      return "";
+    }
+  }
+
+  /**
+   * Last resort fallback with generic metadata
+   */
+  private getFallbackMetadata(contractId: string): TokenMetadata {
+    console.warn(`Using fallback generic metadata for ${contractId}`);
+
+    // Try to extract token symbols from contract name
+    let symbol = "LP";
+    const contractName = contractId.split('.')[1];
+
+    if (contractName) {
+      const nameParts = contractName.split('-');
+      if (nameParts.length >= 2) {
+        const filtered = nameParts.filter(part =>
+          !['lp', 'token', 'pool', 'v1', 'v2'].includes(part.toLowerCase())
+        );
+        if (filtered.length >= 2) {
+          symbol = `${filtered[0]}-${filtered[1]}`.toUpperCase();
+        }
+      }
     }
 
-    // Handle IPFS URIs
-    let uri = value;
-    if (uri.startsWith('ipfs://')) {
-      const ipfsGateway = Dexterity.config.ipfsGateway || 'https://ipfs.io/';
-      uri = uri.replace('ipfs://', ipfsGateway);
-    }
-
-    const response = await fetch(uri);
-
-    if (!response.ok) {
-      console.error(`\nFailed to fetch metadata from ${uri}`);
-      return {
-        identifier: "Unknown",
-        symbol: "Unknown",
-        decimals: 6,
-        name: "Unknown",
-        description: "Failed to fetch metadata from token URI",
-        image: "",
-        properties: {
-          tokenAContract: "",
-          tokenBContract: "",
-          lpRebatePercent: 0,
-        },
-      };
-    }
-
-    return response.json();
+    return {
+      identifier: symbol,
+      symbol: symbol,
+      decimals: 6,
+      name: `${symbol} LP Token`,
+      description: "LP Token with incomplete metadata",
+      image: "",
+      properties: {
+        tokenAContract: "",
+        tokenBContract: "",
+        lpRebatePercent: 0.3,
+      },
+    };
   }
 
   async getTokenIdentifier(contractId: string): Promise<string> {
@@ -293,7 +412,9 @@ export class StacksClient {
       'SP23B2ZSDG9WKWPCKRERP6PV81FWNB4NECV6MKKAC.stxcha-lp-token',
       'SP3T1M18J3VX038KSYPP5G450WVWWG9F9G6GAZA4Q.iouwelshwelsh-lp-token',
       'SPGYCP878RYFVT03ZT8TWGPKNYTSQB1578VVXHGE.welshups-lp-token',
-      'SP39859AD7RQ6NYK00EJ8HN1DWE40C576FBDGHPA0.chabtz-lp-token'
+      'SP39859AD7RQ6NYK00EJ8HN1DWE40C576FBDGHPA0.chabtz-lp-token',
+      'SP2F66ASMYZ9M8EEVD4S76RCF9X15WZD2EQFR5MV1.stxsbtc-lp-token',
+      'SP14NS8MVBRHXMM96BQY0727AJ59SWPV7RMHC0NCG.pontis-bridge-ROONS'
     ];
 
     while (hasMore) {

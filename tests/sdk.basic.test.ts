@@ -16,7 +16,10 @@ describe("Dexterity SDK - Basic Operations", () => {
   beforeAll(async () => {
     try {
       await Dexterity.configure({debug: true});
-      await Dexterity.discover({reserves: false});
+      await Dexterity.discover({
+        reserves: false,
+        continueOnError: true // Continue even if some pools fail to load
+      });
     } catch (error) {
       console.warn("Network-dependent tests will be skipped due to connection issues:", error);
       skipNetworkTests = true;

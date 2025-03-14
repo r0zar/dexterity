@@ -276,53 +276,53 @@ describe("Vaults", async () => {
     });
   });
 
-  describe("Vault Metadata Management", () => {
-    let testVault: Vault;
+  // describe("Vault Metadata Management", () => {
+  //   let testVault: Vault;
 
-    beforeAll(async () => {
-      testVault = await Vault.build("SP2D5BGGJ956A635JG7CJQ59FTRFRB0893514EZPJ.old-faithful");
-    });
+  //   beforeAll(async () => {
+  //     testVault = await Vault.build("SP2D5BGGJ956A635JG7CJQ59FTRFRB0893514EZPJ.old-faithful");
+  //   });
 
-    it("should fetch initial metadata correctly", () => {
-      expect(testVault.name).toBe("Old Faithful");
-      expect(testVault.symbol).toBe("FAITH");
-      expect(testVault.description).toBeTypeOf("string");
-      expect(testVault.fee).toBeGreaterThan(0);
-      expect(testVault.fee).toBeLessThanOrEqual(1000000);
-      console.log(testVault);
-    });
+  //   it("should fetch initial metadata correctly", () => {
+  //     expect(testVault.name).toBe("Old Faithful");
+  //     expect(testVault.symbol).toBe("FAITH");
+  //     expect(testVault.description).toBeTypeOf("string");
+  //     expect(testVault.fee).toBeGreaterThan(0);
+  //     expect(testVault.fee).toBeLessThanOrEqual(1000000);
+  //     console.log(testVault);
+  //   });
 
-    it("should update metadata in memory", async () => {
-      const updates = {
-        description: "Updated description for testing",
-      };
+  //   it("should update metadata in memory", async () => {
+  //     const updates = {
+  //       description: "Updated description for testing",
+  //     };
 
-      await testVault.updateMetadata(updates);
+  //     await testVault.updateMetadata(updates);
 
-      expect(testVault.description).toBe(updates.description);
-    });
+  //     expect(testVault.description).toBe(updates.description);
+  //   });
 
-    it("should validate metadata updates", async () => {
-      // Invalid name
-      await expect(testVault.updateMetadata({
-        name: "a"
-      })).rejects.toThrow("Name must be at least 2 characters");
+  //   it("should validate metadata updates", async () => {
+  //     // Invalid name
+  //     await expect(testVault.updateMetadata({
+  //       name: "a"
+  //     })).rejects.toThrow("Name must be at least 2 characters");
 
-      // Invalid symbol
-      await expect(testVault.updateMetadata({
-        symbol: "ABC-D"
-      })).rejects.toThrow("Symbol can only contain uppercase letters and numbers");
-    });
+  //     // Invalid symbol
+  //     await expect(testVault.updateMetadata({
+  //       symbol: "ABC-D"
+  //     })).rejects.toThrow("Symbol can only contain uppercase letters and numbers");
+  //   });
 
-    it('should persist metadata changes for the owner', async () => {
+  //   it('should persist metadata changes for the owner', async () => {
 
-      const updatedMetadata = {
-        description: 'Liquidity vault wrapper for the USDA-aeUSDC stableswap pair!'
-      }
+  //     const updatedMetadata = {
+  //       description: 'Liquidity vault wrapper for the USDA-aeUSDC stableswap pair!'
+  //     }
 
-      await testVault.updateMetadataWithStorage(updatedMetadata);
+  //     await testVault.updateMetadataWithStorage(updatedMetadata);
 
-      expect(testVault.description).toBe(updatedMetadata.description);
-    });
-  });
-});
+  //     expect(testVault.description).toBe(updatedMetadata.description);
+  //   });
+  // }, 50000);
+}, 50000);

@@ -31,7 +31,19 @@ export class Dexterity {
   /**
    * Discover vaults and load them into the router
    */
-  static async discover({ blacklist = [], serialize = false, load = true, reserves = true }: { blacklist?: ContractId[], serialize?: boolean, load?: boolean, reserves?: boolean } = {}): Promise<Partial<Vault>[]> {
+  static async discover({ 
+    blacklist = [], 
+    serialize = false, 
+    load = true, 
+    reserves = true, 
+    continueOnError = true 
+  }: { 
+    blacklist?: ContractId[], 
+    serialize?: boolean, 
+    load?: boolean, 
+    reserves?: boolean,
+    continueOnError?: boolean
+  } = {}): Promise<Partial<Vault>[]> {
     // Ensure config is loaded
     await this.configure();
 
@@ -45,21 +57,53 @@ export class Dexterity {
       (contract) => !blacklist.includes(contract.contract_id)
     );
 
+    console.log(`Discovered ${filteredContracts.length} potential pools`);
+
     // Process contracts in parallel batches
     const vaults: Vault[] = [];
     const parallelRequests = Dexterity.config.parallelRequests;
+    const failedPools: { contractId: string, error: any }[] = [];
 
     for (let i = 0; i < filteredContracts.length; i += parallelRequests) {
       const batch = filteredContracts.slice(i, i + parallelRequests);
-      const vaultPromises = batch.map((contract) =>
-        Vault.build(contract.contract_id, reserves)
+      
+      // Use allSettled to handle failures gracefully
+      const batchResults = await Promise.allSettled(
+        batch.map(contract => Vault.build(contract.contract_id, reserves))
       );
-
-      const results = await Promise.all(vaultPromises);
-      vaults.push(...(results.filter((vault) => vault !== null) as Vault[]));
+      
+      // Process results, handling both successes and failures
+      for (let j = 0; j < batchResults.length; j++) {
+        const result = batchResults[j];
+        const contractId = batch[j].contract_id;
+        
+        if (result.status === 'fulfilled' && result.value !== null) {
+          vaults.push(result.value);
+        } else {
+          // Record the failure
+          const error = result.status === 'rejected' ? result.reason : 'Null vault returned';
+          failedPools.push({ contractId, error });
+          console.warn(`Failed to build vault for ${contractId}: ${error}`);
+          
+          // If we're not continuing on error, throw
+          if (!continueOnError) {
+            throw new Error(`Failed to build vault for ${contractId}: ${error}`);
+          }
+        }
+      }
     }
 
+    // Log a summary of failed pools
+    if (failedPools.length > 0) {
+      console.warn(`Failed to load ${failedPools.length} pools out of ${filteredContracts.length}`);
+    }
+    
+    console.log(`Successfully loaded ${vaults.length} vaults`);
+
+    // Load vaults into router if requested
     if (load) this.router.loadVaults(vaults);
+    
+    // Return vaults in requested format
     return serialize ? vaults.map(v => v.toLPToken()) : vaults;
   }
 
