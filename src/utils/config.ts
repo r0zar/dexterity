@@ -54,7 +54,7 @@ export const ConfigSchema = z.object({
     (val) => typeof val === 'string' ? val.split(',').map(v => v.trim()).filter(Boolean) : val,
     z.array(z.string())
   ).optional(),
-  apiKeyRotation: z.enum(["random"]).optional(),
+  apiKeyRotation: z.enum(["random", 'loop']).optional(),
   debug: z.preprocess((val) => val === 'true', z.boolean()),
   parallelRequests: z.coerce.number().int().min(1).max(10),
   routerAddress: z.string(),
