@@ -13,6 +13,11 @@ import type {
 import { StacksClient } from "../utils/client";
 import { loadConfig, DEFAULT_SDK_CONFIG } from "../utils/config";
 import { Cache } from "../utils/cache";
+import { 
+  deploySubnetWrapper, 
+  SubnetWrapperParams, 
+  DeploymentResult 
+} from "./token-wrapper";
 
 export class Dexterity {
   static config = DEFAULT_SDK_CONFIG;
@@ -261,5 +266,29 @@ export class Dexterity {
       }
     }
     return Array.from(tokens.values());
+  }
+  
+  /**
+   * Deploy a subnet wrapper contract for an existing token
+   * @param params Subnet wrapper parameters
+   * @returns Promise resolving to the deployment result
+   */
+  static async deployTokenSubnet(params: SubnetWrapperParams): Promise<DeploymentResult> {
+    // Ensure SDK is configured
+    await this.configure();
+    
+    try {
+      // Deploy the subnet wrapper contract
+      const result = await deploySubnetWrapper(params);
+      
+      // Return the deployment result
+      return result;
+    } catch (error) {
+      // Handle any errors
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error deploying token subnet"
+      };
+    }
   }
 }
