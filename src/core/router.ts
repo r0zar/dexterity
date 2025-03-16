@@ -136,7 +136,6 @@ export class Router {
           if (sponsored) await Dexterity.client.requestSponsoredTransaction(data.txRaw)
         }
       }
-      console.log('sponsored?', contractCallOptions.sponsored)
       await showContractCall(contractCallOptions);
     }
   }

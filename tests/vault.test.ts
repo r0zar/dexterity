@@ -10,7 +10,6 @@ describe("Vaults", async () => {
   let testVault;
   beforeAll(async () => {
     await Dexterity.configure({ debug: true });
-    console.log(Dexterity.config);
     // Initialize with a known test pool
     testVault = await Vault.build("SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.stx-cha-vault-wrapper-alex");
   });
@@ -18,7 +17,6 @@ describe("Vaults", async () => {
   describe('Data Discovery', () => {
     it('should get token info', async () => {
       const tokenInfo = await Dexterity.getTokenInfo("SP3M31QFF6S96215K4Y2Z9K5SGHJN384NV6YM6VM8.satoshai");
-      console.log(tokenInfo);
     });
   });
 
@@ -183,8 +181,6 @@ describe("Vaults", async () => {
       it("should generate valid hold-to-earn contract", () => {
         const contract = baseVault.generateHoldToEarnCode();
 
-        console.log(contract);
-
         // Check core components
         expect(contract).toContain("(define-data-var first-start-block uint stacks-block-height)");
         expect(contract).toContain("(define-map last-tap-block principal uint)");
@@ -213,7 +209,6 @@ describe("Vaults", async () => {
         "get-owner",
         [cvToHex(parseToCV("1", "uint128"))]
       );
-      console.log(result);
     });
 
     it('should get market info', async () => {
@@ -222,7 +217,6 @@ describe("Vaults", async () => {
         "get-market-info",
         [cvToHex(parseToCV("0", "uint128"))]
       );
-      console.log(result);
     });
 
     it('should resolve market', async () => {
@@ -236,7 +230,6 @@ describe("Vaults", async () => {
         fee: 1000,
       });
       const result = await broadcastTransaction({ transaction });
-      console.log(result);
     });
 
     it('should quote reward', async () => {
@@ -245,7 +238,6 @@ describe("Vaults", async () => {
         "quote-reward",
         [cvToHex(parseToCV("1", "uint128"))]
       );
-      console.log(result);
     });
 
     it('should claim reward', async () => {
@@ -259,7 +251,6 @@ describe("Vaults", async () => {
         fee: 1000,
       });
       const result = await broadcastTransaction({ transaction });
-      console.log(result);
     });
   });
 
@@ -267,12 +258,10 @@ describe("Vaults", async () => {
 
     it("should generate valid prediction contract", async () => {
       const contract = Vault.generatePredictionContractCode("prediction-test");
-      console.log(contract);
     });
 
     it("should deploy prediction contract", { skip: true }, async () => {
       const result = await Vault.deployPredictionContract("prediction-markets-vault");
-      console.log(result);
     });
   });
 

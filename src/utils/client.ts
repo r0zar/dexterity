@@ -193,8 +193,6 @@ export class StacksClient {
    * Construct metadata by making direct calls to token functions
    */
   private async constructMetadataFromDirectCalls(contractId: string): Promise<TokenMetadata> {
-    console.log(`Attempting to construct metadata directly for ${contractId}`);
-
     try {
       // Try to get basic token info directly from standard contract methods
       const [symbol, name, decimals, tokenAContract, tokenBContract] = await Promise.all([

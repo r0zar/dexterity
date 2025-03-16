@@ -13,10 +13,10 @@ import type {
 import { StacksClient } from "../utils/client";
 import { loadConfig, DEFAULT_SDK_CONFIG } from "../utils/config";
 import { Cache } from "../utils/cache";
-import { 
-  deploySubnetWrapper, 
-  SubnetWrapperParams, 
-  DeploymentResult 
+import {
+  deploySubnetWrapper,
+  SubnetWrapperParams,
+  DeploymentResult
 } from "./token-wrapper";
 
 export class Dexterity {
@@ -36,16 +36,16 @@ export class Dexterity {
   /**
    * Discover vaults and load them into the router
    */
-  static async discover({ 
-    blacklist = [], 
-    serialize = false, 
-    load = true, 
-    reserves = true, 
-    continueOnError = true 
-  }: { 
-    blacklist?: ContractId[], 
-    serialize?: boolean, 
-    load?: boolean, 
+  static async discover({
+    blacklist = [],
+    serialize = false,
+    load = true,
+    reserves = true,
+    continueOnError = true
+  }: {
+    blacklist?: ContractId[],
+    serialize?: boolean,
+    load?: boolean,
     reserves?: boolean,
     continueOnError?: boolean
   } = {}): Promise<Partial<Vault>[]> {
@@ -71,17 +71,17 @@ export class Dexterity {
 
     for (let i = 0; i < filteredContracts.length; i += parallelRequests) {
       const batch = filteredContracts.slice(i, i + parallelRequests);
-      
+
       // Use allSettled to handle failures gracefully
       const batchResults = await Promise.allSettled(
         batch.map(contract => Vault.build(contract.contract_id, reserves))
       );
-      
+
       // Process results, handling both successes and failures
       for (let j = 0; j < batchResults.length; j++) {
         const result = batchResults[j];
         const contractId = batch[j].contract_id;
-        
+
         if (result.status === 'fulfilled' && result.value !== null) {
           vaults.push(result.value);
         } else {
@@ -89,7 +89,7 @@ export class Dexterity {
           const error = result.status === 'rejected' ? result.reason : 'Null vault returned';
           failedPools.push({ contractId, error });
           console.warn(`Failed to build vault for ${contractId}: ${error}`);
-          
+
           // If we're not continuing on error, throw
           if (!continueOnError) {
             throw new Error(`Failed to build vault for ${contractId}: ${error}`);
@@ -102,12 +102,12 @@ export class Dexterity {
     if (failedPools.length > 0) {
       console.warn(`Failed to load ${failedPools.length} pools out of ${filteredContracts.length}`);
     }
-    
+
     console.log(`Successfully loaded ${vaults.length} vaults`);
 
     // Load vaults into router if requested
     if (load) this.router.loadVaults(vaults);
-    
+
     // Return vaults in requested format
     return serialize ? vaults.map(v => v.toLPToken()) : vaults;
   }
@@ -267,7 +267,7 @@ export class Dexterity {
     }
     return Array.from(tokens.values());
   }
-  
+
   /**
    * Deploy a subnet wrapper contract for an existing token
    * @param params Subnet wrapper parameters
@@ -280,11 +280,11 @@ export class Dexterity {
   ): Promise<DeploymentResult> {
     // Ensure SDK is configured
     await this.configure();
-    
+
     try {
       // Deploy the subnet wrapper contract with optional credentials
       const result = await deploySubnetWrapper(params, credentials);
-      
+
       // Return the deployment result
       return result;
     } catch (error) {
@@ -295,7 +295,7 @@ export class Dexterity {
       };
     }
   }
-  
+
   /**
    * Generate subnet wrapper contract code without deploying
    * @param params Subnet wrapper parameters
@@ -307,6 +307,6 @@ export class Dexterity {
     address?: string
   ): { code: string; contractName: string; contractId: string } {
     // Generate and return the contract code and metadata
-    return generateSubnetCode(params, address);
+    return this.generateSubnetCode(params, address);
   }
 }
