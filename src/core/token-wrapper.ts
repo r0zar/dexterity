@@ -99,7 +99,7 @@ export function generateSubnetWrapper(params: SubnetWrapperParams): string {
 
 ;; Platform constants
 (define-constant fee-recipient-address 'SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS)
-(define-constant deployment-fee u50000000) ;; 50 STX
+(define-constant deployment-fee u5) ;; 5 uSTX
 
 ;; Constants for SIP-018 structured data
 (define-constant structured-data-prefix 0x534950303138)
@@ -489,7 +489,7 @@ export async function deploySubnetWrapper(
     // Use provided credentials or SDK defaults
     const privateKey = credentials?.privateKey || Dexterity.config.privateKey;
     const stxAddress = credentials?.stxAddress || Dexterity.config.stxAddress;
-    
+
     // Validate parameters
     validateWrapperParams(params);
 

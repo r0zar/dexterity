@@ -303,10 +303,7 @@ export class Dexterity {
    * @param address Optional STX address override for contractId
    * @returns Contract code, name, and ID
    */
-  static generateSubnetCode(
-    params: SubnetWrapperParams,
-    address?: string
-  ) {
+  static generateSubnetCode(params: SubnetWrapperParams) {
     // Generate and return the contract code and metadata
     return {
       code: generateSubnetWrapper(params),
