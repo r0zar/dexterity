@@ -16,7 +16,8 @@ import { Cache } from "../utils/cache";
 import {
   deploySubnetWrapper,
   SubnetWrapperParams,
-  DeploymentResult
+  DeploymentResult,
+  generateSubnetWrapper
 } from "./token-wrapper";
 
 export class Dexterity {
@@ -305,8 +306,11 @@ export class Dexterity {
   static generateSubnetCode(
     params: SubnetWrapperParams,
     address?: string
-  ): { code: string; contractName: string; contractId: string } {
+  ) {
     // Generate and return the contract code and metadata
-    return this.generateSubnetCode(params, address);
+    return {
+      code: generateSubnetWrapper(params),
+      contractName: params.versionName
+    }
   }
 }
