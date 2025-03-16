@@ -9,6 +9,8 @@ import { Dexterity } from "./sdk";
 import { ErrorUtils } from "../utils";
 import { ERROR_CODES } from "../utils/constants";
 
+const deploymentFee = 5; // 50 STX
+
 /**
  * Interface for deployment results
  */
@@ -99,7 +101,7 @@ export function generateSubnetWrapper(params: SubnetWrapperParams): string {
 
 ;; Platform constants
 (define-constant fee-recipient-address 'SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS)
-(define-constant deployment-fee u5) ;; 5 uSTX
+(define-constant deployment-fee u${deploymentFee})
 
 ;; Constants for SIP-018 structured data
 (define-constant structured-data-prefix 0x534950303138)
@@ -467,7 +469,7 @@ export function getWrapperDeployConfig(code: string, contractName: string): any 
     postConditions: [
       // Platform owner is waived the fee, everyone else pays 50 STX
       Dexterity.config.stxAddress !== 'SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS'
-        ? Pc.principal(Dexterity.config.stxAddress).willSendEq(50000000).ustx()
+        ? Pc.principal(Dexterity.config.stxAddress).willSendEq(deploymentFee).ustx()
         : undefined
     ].filter(Boolean),
     fee: 50000, // 0.05 STX tx fee
