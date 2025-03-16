@@ -424,6 +424,38 @@ export function getWrapperContractName(params: SubnetWrapperParams): string {
 }
 
 /**
+ * Generate subnet wrapper contract code and return contract details
+ * @param params Subnet wrapper parameters
+ * @param address Optional STX address override for contractId
+ * @returns Object with code, contractName, and contractId
+ */
+export function generateSubnetCode(
+  params: SubnetWrapperParams,
+  address?: string
+): { code: string; contractName: string; contractId: string } {
+  // Validate parameters
+  validateWrapperParams(params);
+
+  // Use provided address or default
+  const stxAddress = address || Dexterity.config.stxAddress;
+
+  // Generate contract code
+  const code = generateSubnetWrapper(params);
+
+  // Get contract name
+  const contractName = getWrapperContractName(params);
+
+  // Create the contractId
+  const contractId = `${stxAddress}.${contractName}`;
+
+  return {
+    code,
+    contractName,
+    contractId
+  };
+}
+
+/**
  * Build deployment configuration for a subnet-wrapper contract
  */
 export function getWrapperDeployConfig(code: string, contractName: string): any {
@@ -445,9 +477,19 @@ export function getWrapperDeployConfig(code: string, contractName: string): any 
 
 /**
  * Deploy a subnet-wrapper contract for an existing token
+ * @param params Subnet wrapper parameters
+ * @param credentials Optional override for privateKey and stxAddress
+ * @returns Promise resolving to the deployment result
  */
-export async function deploySubnetWrapper(params: SubnetWrapperParams): Promise<DeploymentResult> {
+export async function deploySubnetWrapper(
+  params: SubnetWrapperParams,
+  credentials?: { privateKey?: string; stxAddress?: string }
+): Promise<DeploymentResult> {
   try {
+    // Use provided credentials or SDK defaults
+    const privateKey = credentials?.privateKey || Dexterity.config.privateKey;
+    const stxAddress = credentials?.stxAddress || Dexterity.config.stxAddress;
+    
     // Validate parameters
     validateWrapperParams(params);
 
@@ -457,15 +499,15 @@ export async function deploySubnetWrapper(params: SubnetWrapperParams): Promise<
     // Get contract name
     const contractName = getWrapperContractName(params);
 
-    // Create the contractId
-    const contractId = `${Dexterity.config.stxAddress}.${contractName}`;
+    // Create the contractId using the appropriate address
+    const contractId = `${stxAddress}.${contractName}`;
 
     // Build the deployment configuration
     const deployConfig = getWrapperDeployConfig(contractCode, contractName);
 
     // Deploy the contract based on the mode
     if (Dexterity.config.mode === "server") {
-      if (!Dexterity.config.privateKey) {
+      if (!privateKey) {
         return {
           success: false,
           error: "Private key is required for server-side deployment"
@@ -474,7 +516,7 @@ export async function deploySubnetWrapper(params: SubnetWrapperParams): Promise<
 
       const transaction = await makeContractDeploy({
         ...deployConfig,
-        senderKey: Dexterity.config.privateKey,
+        senderKey: privateKey,
       });
 
       const result = await broadcastTransaction({ transaction });
@@ -484,7 +526,6 @@ export async function deploySubnetWrapper(params: SubnetWrapperParams): Promise<
         txId: result.txid,
         contractId
       };
-
     } else {
       // Client-side: prepare the configuration for wallet to deploy
       // This will be used by connectWallet in the UI

@@ -271,15 +271,19 @@ export class Dexterity {
   /**
    * Deploy a subnet wrapper contract for an existing token
    * @param params Subnet wrapper parameters
+   * @param credentials Optional credentials override (privateKey, stxAddress)
    * @returns Promise resolving to the deployment result
    */
-  static async deployTokenSubnet(params: SubnetWrapperParams): Promise<DeploymentResult> {
+  static async deployTokenSubnet(
+    params: SubnetWrapperParams,
+    credentials?: { privateKey?: string; stxAddress?: string }
+  ): Promise<DeploymentResult> {
     // Ensure SDK is configured
     await this.configure();
     
     try {
-      // Deploy the subnet wrapper contract
-      const result = await deploySubnetWrapper(params);
+      // Deploy the subnet wrapper contract with optional credentials
+      const result = await deploySubnetWrapper(params, credentials);
       
       // Return the deployment result
       return result;
@@ -290,5 +294,19 @@ export class Dexterity {
         error: error instanceof Error ? error.message : "Unknown error deploying token subnet"
       };
     }
+  }
+  
+  /**
+   * Generate subnet wrapper contract code without deploying
+   * @param params Subnet wrapper parameters
+   * @param address Optional STX address override for contractId
+   * @returns Contract code, name, and ID
+   */
+  static generateSubnetCode(
+    params: SubnetWrapperParams,
+    address?: string
+  ): { code: string; contractName: string; contractId: string } {
+    // Generate and return the contract code and metadata
+    return generateSubnetCode(params, address);
   }
 }

@@ -163,11 +163,9 @@ export async function loadConfig(runtimeConfig?: Partial<SDKConfig>): Promise<SD
     config.mode = "server";
     config.privateKey = wallet.accounts[0].stxPrivateKey;
     config.stxAddress = getStxAddress(wallet.accounts[0], config.network);
-  } else {
-    if (config.mode === 'server') {
-      throw new Error("Server mode requires 'SEED_PHRASE' environment variable to be set");
-    }
   }
+  // No longer throw error if server mode without SEED_PHRASE
+  // This allows for privateKey/stxAddress to be passed directly
 
   // Validate the final configuration
   const validatedConfig = ConfigSchema.parse(config);
