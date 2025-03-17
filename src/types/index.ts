@@ -149,7 +149,9 @@ export interface ExecuteOptions {
   senderKey?: string;
   sponsored?: boolean;
   fee?: number;
-
+  // Credential properties for flexible signing
+  privateKey?: string;
+  stxAddress?: string;
 }
 
 export interface PoolEvent {

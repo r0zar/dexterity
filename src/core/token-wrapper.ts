@@ -9,7 +9,7 @@ import { Dexterity } from "./sdk";
 import { ErrorUtils } from "../utils";
 import { ERROR_CODES } from "../utils/constants";
 
-const deploymentFee = 5; // 50 STX
+const deploymentFee = 50000000; // 50 STX
 
 /**
  * Interface for deployment results
@@ -80,11 +80,8 @@ export function generateSubnetWrapper(params: SubnetWrapperParams): string {
   // Validate parameters
   validateWrapperParams(params);
 
-  // Extract contract ID parts from the token contract
-  const [contractAddress, contractName] = params.tokenContract.split('.');
-
   // Format tokenContractId for contract calls
-  const formattedTokenContract = `'${params.tokenContract}'`;
+  const formattedTokenContract = `'${params.tokenContract}`;
 
   // Combine the version name and number
   const fullVersion = `${params.versionName}-${params.versionNumber}`;
@@ -120,8 +117,8 @@ export function generateSubnetWrapper(params: SubnetWrapperParams): string {
 (define-constant ERR_NONCE_TOO_LOW (err u102))
 (define-constant ERR_CONSENSUS_BUFF (err u103))
 (define-constant ERR_TOO_MANY_OPERATIONS (err u104))
-(define-constant ERR_TRANSFER_FAILED (err u105))
-(define-constant ERR_UNAUTHORIZED (err u106))
+(define-constant ERR_UNAUTHORIZED (err u105))
+(define-constant ERR_TRANSFER_FAILED (err u106))
 
 ;; Constants
 (define-constant MAX_BATCH_SIZE u${params.batchSize})
@@ -131,35 +128,11 @@ export function generateSubnetWrapper(params: SubnetWrapperParams): string {
 (define-map nonces principal uint)
 
 ;; Initialization block - only runs once on contract deployment
-(define-data-var initialized bool false)
-(define-public (initialize)
-  (let
-    (
-      (caller tx-sender)
-    )
-    ;; Ensure function is only called once
-    (asserts! (not (var-get initialized)) (err u400))
-    
-    ;; If the deployer is not the platform owner, transfer deployment fee
-    (if (not (is-eq caller fee-recipient-address))
-      (begin
-        ;; Transfer fee if caller is not the platform owner
-        (try! (stx-transfer? deployment-fee caller fee-recipient-address))
-        (print {
-          event: "deployment-fee-paid",
-          deployer: caller,
-          fee: deployment-fee
-        })
-      )
-      ;; No fee for platform owner
-      (print {
-        event: "deployment-fee-waived",
-        deployer: caller
-      })
-    )
-    
-    ;; Mark as initialized
-    (var-set initialized true)
+(begin
+  ;; If the deployer is not the platform owner, transfer deployment fee
+  (if (not (is-eq tx-sender fee-recipient-address))
+    ;; Transfer fee if tx-sender is not the platform owner
+    (stx-transfer? deployment-fee tx-sender fee-recipient-address)
     (ok true)
   )
 )
@@ -416,6 +389,7 @@ export function generateSubnetWrapper(params: SubnetWrapperParams): string {
   )
 )`;
 }
+
 /**
  * Get wrapper contract name from parameters
  */
