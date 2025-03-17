@@ -344,7 +344,7 @@ export class StacksClient {
           identifier: apiData.symbol,
           name: apiData.name,
           symbol: apiData.symbol,
-          decimals: apiData.decimals,
+          decimals: apiData.decimals ?? 0,
           supply: Number(apiData.total_supply),
           description: apiData.description || "",
           image: apiData.image_uri || apiData.image_canonical_uri || ""
