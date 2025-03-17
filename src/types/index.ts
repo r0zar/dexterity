@@ -94,6 +94,34 @@ export interface TokenMetadata {
   identifier: string;
   symbol: string;
   decimals: number;
+  total_supply?: string;
+  token_uri?: string;
+  image_uri?: string;
+  image_thumbnail_uri?: string;
+  image_canonical_uri?: string;
+  tx_id?: string;
+  sender_address?: string;
+  contract_principal?: string;
+  asset_identifier?: string;
+  metadata?: {
+    sip?: number;
+    name?: string;
+    description?: string;
+    image?: string;
+    cached_image?: string;
+    cached_thumbnail_image?: string;
+    attributes?: Array<{
+      trait_type: string;
+      display_type: string;
+      value: string;
+    }>;
+    properties?: Record<string, string>;
+    localization?: {
+      uri: string;
+      default: string;
+      locales: string[];
+    };
+  };
   properties: {
     tokenAContract: string;
     tokenBContract: string;

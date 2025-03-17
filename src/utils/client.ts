@@ -1,6 +1,6 @@
 import { createClient, Client } from "@stacks/blockchain-api-client";
 import { cvToValue, hexToCV, parseToCV, cvToHex, makeContractCall, broadcastTransaction } from "@stacks/transactions";
-import { TokenMetadata } from "../types";
+import { ContractId, Token, TokenMetadata } from "../types";
 import { paths } from "@stacks/blockchain-api-client/lib/generated/schema";
 import { Dexterity } from "../core/sdk";
 import { getFetchOptions } from "@stacks/common";
@@ -96,7 +96,6 @@ export class StacksClient {
       } catch (error) {
         attempt++;
         if (attempt >= retries) {
-          console.debug(getFetchOptions());
           console.error(error);
           throw new Error(
             `\nFailed to call ${contractId} read-only method ${method} after ${retries} attempts: ${error}`
@@ -141,17 +140,119 @@ export class StacksClient {
     return response.json();
   }
 
-  async getTokenMetadata(contractId: string): Promise<TokenMetadata> {
+  async getTokenMetadata(contractId: string): Promise<TokenMetadata | null> {
     try {
-      // First, try to get the token URI from the contract
+      // Build the URL path with properly encoded principal
+      const path = `/metadata/v1/ft/${contractId}`;
+
+      // Try to fetch the metadata using our metadata fetch method with API keys
+      try {
+        // Use our custom fetchMetadata method to make the request
+        const response = await this.fetchMetadata(path)
+
+        // If we caught a 404, or had other issues, fall back to the contract methods
+        if (!response || !response.ok) {
+          console.warn(`Failed to fetch metadata from Hiro API: ${response?.status || 'unknown error'}`);
+          return await this.getTokenMetadataFallback(contractId);
+        }
+
+        // Parse the JSON metadata from the API
+        const apiMetadata = await response.json();
+
+        // Map the API response to our TokenMetadata interface
+        return {
+          name: apiMetadata.name || `LP Token ${contractId.split('.')[1]}`,
+          description: apiMetadata.description || `Liquidity Pool Token for ${contractId}`,
+          image: apiMetadata.image_uri || apiMetadata.image_canonical_uri || "",
+          identifier: apiMetadata.symbol || "LP",
+          symbol: apiMetadata.symbol || "LP",
+          decimals: apiMetadata.decimals || 6,
+          total_supply: apiMetadata.total_supply,
+          token_uri: apiMetadata.token_uri,
+          image_uri: apiMetadata.image_uri,
+          image_thumbnail_uri: apiMetadata.image_thumbnail_uri,
+          image_canonical_uri: apiMetadata.image_canonical_uri,
+          tx_id: apiMetadata.tx_id,
+          sender_address: apiMetadata.sender_address,
+          contract_principal: apiMetadata.contract_principal || contractId,
+          asset_identifier: apiMetadata.asset_identifier,
+          metadata: apiMetadata.metadata,
+          properties: {
+            tokenAContract: apiMetadata.metadata?.properties?.tokenAContract || "",
+            tokenBContract: apiMetadata.metadata?.properties?.tokenBContract || "",
+            lpRebatePercent: parseFloat(apiMetadata.metadata?.properties?.lpRebatePercent) || 0.3,
+            externalPoolId: apiMetadata.metadata?.properties?.externalPoolId || "",
+            engineContractId: apiMetadata.metadata?.properties?.engineContractId || ""
+          }
+        };
+      } catch (error) {
+        console.warn(`Error fetching from Hiro API for ${contractId}: ${error}`);
+        return await this.getTokenMetadataFallback(contractId);
+      }
+    } catch (error) {
+      console.error(`Complete metadata retrieval failed for ${contractId}: ${error}`);
+      return null;
+    }
+  }
+
+  /**
+   * Get standard API headers with API key
+   */
+  private getApiHeaders(): Headers {
+    const headers = new Headers({
+      'Content-Type': 'application/json',
+    });
+
+    const apiKeys = Dexterity.config.apiKeys || [Dexterity.config.apiKey];
+    if (apiKeys.length) {
+      const key = StacksClient.getNextApiKey(apiKeys);
+      headers.set('x-api-key', key);
+    }
+
+    return headers;
+  }
+
+  /**
+   * Fetch from metadata API with API key rotation
+   */
+  private async fetchMetadata(path: string, options: RequestInit = {}): Promise<Response> {
+    // Get API keys from config
+    const apiKeys = Dexterity.config.apiKeys || [Dexterity.config.apiKey];
+
+    // Create headers with API key
+    const headers = new Headers(options.headers || {});
+    headers.set('Content-Type', 'application/json');
+
+    if (apiKeys.length) {
+      const key = StacksClient.getNextApiKey(apiKeys);
+      headers.set('x-api-key', key);
+    }
+
+    // Use one of our API endpoints
+    const baseUrl = "https://api.hiro.so";
+
+    // Make the fetch request with API key
+    return fetch(`${baseUrl}${path}`, {
+      ...options,
+      headers
+    });
+  }
+
+  /**
+   * Fallback method to get token metadata using the old approach when the Hiro API fails
+   */
+  private async getTokenMetadataFallback(contractId: string): Promise<TokenMetadata | null> {
+    try {
+      // Try to get the token URI from the contract
       const result = await this.callReadOnly(contractId, "get-token-uri").catch(error => {
         console.warn(`Failed to get token URI for ${contractId}: ${error}`);
         return { value: null };
       });
 
       if (!result || !result.value) {
-        // No token URI available, try to get token info directly
-        return this.constructMetadataFromDirectCalls(contractId);
+        // No token URI available, we can't proceed with this pool
+        console.warn(`No token URI available for ${contractId}, skipping pool`);
+        return null;
       }
 
       // Handle IPFS URIs
@@ -167,144 +268,125 @@ export class StacksClient {
         response = await fetch(uri);
       } catch (error) {
         console.warn(`Failed to fetch from ${uri}: ${error}`);
-        return this.constructMetadataFromDirectCalls(contractId);
+        return null;
       }
 
       if (!response.ok) {
         console.warn(`Failed to fetch metadata from ${uri}: ${response.status}`);
-        return this.constructMetadataFromDirectCalls(contractId);
+        return null;
       }
 
-      // Parse the JSON metadata
+      // Parse the JSON metadata and fill in any missing fields with defaults
       try {
         const metadata = await response.json();
-        return metadata;
+
+        // Ensure all required fields exist with reasonable defaults
+        return {
+          name: metadata.name || `LP Token ${contractId.split('.')[1]}`,
+          description: metadata.description || `Liquidity Pool Token for ${contractId}`,
+          image: metadata.image || "",
+          identifier: metadata.identifier || metadata.symbol || "LP",
+          symbol: metadata.symbol || "LP",
+          decimals: metadata.decimals || 6,
+          token_uri: uri,
+          properties: {
+            tokenAContract: metadata.properties?.tokenAContract || "",
+            tokenBContract: metadata.properties?.tokenBContract || "",
+            lpRebatePercent: metadata.properties?.lpRebatePercent || 0.3,
+            externalPoolId: metadata.properties?.externalPoolId || "",
+            engineContractId: metadata.properties?.engineContractId || ""
+          }
+        };
       } catch (error) {
         console.warn(`Failed to parse metadata JSON from ${uri}: ${error}`);
-        return this.constructMetadataFromDirectCalls(contractId);
+        return null;
       }
     } catch (error) {
-      console.error(`Complete metadata retrieval failed for ${contractId}: ${error}`);
-      return this.getFallbackMetadata(contractId);
+      console.error(`Fallback metadata retrieval failed for ${contractId}: ${error}`);
+      return null;
+    }
+  }
+
+  // We've removed the direct calls and fallback methods as they weren't reliable
+  // Now we'll just return null if we can't get metadata from the token URI
+
+  /**
+   * Get basic token information from the Hiro metadata API
+   * 
+   * This method uses the /metadata/v1/ft/{principal} endpoint to get complete token info
+   * with fallbacks to contract read-only functions if the API fails
+   */
+  async getToken(contractId: string): Promise<Token | null> {
+    try {
+      // Build the path for metadata API
+      const path = `/metadata/v1/ft/${contractId}`;
+
+      try {
+        // Use our metadata fetcher with API key rotation
+        const response = await this.fetchMetadata(path);
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            console.warn(`No token info found for ${contractId} in Hiro API, falling back to contract methods`);
+            return await this.getTokenInfoFallback(contractId);
+          }
+
+          console.warn(`Failed to fetch token info from Hiro API: ${response.status}`);
+          return await this.getTokenInfoFallback(contractId);
+        }
+
+        // Parse the JSON metadata from the API
+        const apiData = await response.json();
+
+        // Map the API response to our Token interface
+        return {
+          contractId: contractId as ContractId,
+          identifier: apiData.symbol,
+          name: apiData.name,
+          symbol: apiData.symbol,
+          decimals: apiData.decimals,
+          supply: Number(apiData.total_supply),
+          description: apiData.description || "",
+          image: apiData.image_uri || apiData.image_canonical_uri || ""
+        };
+      } catch (error) {
+        console.warn(`Error fetching token info from Hiro API for ${contractId}: ${error}`);
+        return await this.getTokenInfoFallback(contractId);
+      }
+    } catch (error) {
+      console.error(`Complete token info retrieval failed for ${contractId}: ${error}`);
+      return null;
     }
   }
 
   /**
-   * Construct metadata by making direct calls to token functions
+   * Fallback method to get token info using contract read-only methods
    */
-  private async constructMetadataFromDirectCalls(contractId: string): Promise<TokenMetadata> {
+  private async getTokenInfoFallback(contractId: string): Promise<Token | null> {
     try {
-      // Try to get basic token info directly from standard contract methods
-      const [symbol, name, decimals, tokenAContract, tokenBContract] = await Promise.all([
-        this.getTokenSymbol(contractId).catch(() => "Unknown"),
-        this.getTokenName(contractId).catch(() => "Unknown LP Token"),
-        this.getTokenDecimals(contractId).catch(() => 6),
-        this.getPoolTokenContractA(contractId).catch(() => ""),
-        this.getPoolTokenContractB(contractId).catch(() => "")
+      // Get token info from contract methods
+      const [identifier, symbol, decimals, name, supply] = await Promise.all([
+        this.getTokenIdentifier(contractId),
+        this.getTokenSymbol(contractId),
+        this.getTokenDecimals(contractId),
+        this.getTokenName(contractId),
+        this.getTotalSupply(contractId).catch(() => 0)
       ]);
 
       return {
-        identifier: symbol,
-        symbol,
+        contractId: contractId as ContractId,
+        identifier,
         name,
-        decimals: Number(decimals),
-        description: `LP Token for ${symbol} pool`,
-        image: "",
-        properties: {
-          tokenAContract,
-          tokenBContract,
-          lpRebatePercent: 0.3, // Default 0.3% fee
-        }
+        symbol,
+        decimals,
+        supply,
+        description: "",
+        image: ""
       };
     } catch (error) {
-      console.error(`Failed to construct metadata from direct calls for ${contractId}: ${error}`);
-      return this.getFallbackMetadata(contractId);
+      console.error(`Fallback token info retrieval failed for ${contractId}: ${error}`);
+      return null;
     }
-  }
-
-  /**
-   * Get token A contract from pool (fallback method)
-   */
-  private async getPoolTokenContractA(contractId: string): Promise<string> {
-    try {
-      // Try common function names for getting token contracts
-      const methods = ["get-token-a", "get-token-x"];
-
-      for (const method of methods) {
-        try {
-          const result = await this.callReadOnly(contractId, method);
-          if (result) return result;
-        } catch (e) {
-          // Continue to next method
-        }
-      }
-
-      throw new Error("No token A contract found");
-    } catch (error) {
-      console.warn(`Failed to get token A for ${contractId}: ${error}`);
-      return "";
-    }
-  }
-
-  /**
-   * Get token B contract from pool (fallback method)
-   */
-  private async getPoolTokenContractB(contractId: string): Promise<string> {
-    try {
-      // Try common function names for getting token contracts
-      const methods = ["get-token-b", "get-token-y"];
-
-      for (const method of methods) {
-        try {
-          const result = await this.callReadOnly(contractId, method);
-          if (result) return result;
-        } catch (e) {
-          // Continue to next method
-        }
-      }
-
-      throw new Error("No token B contract found");
-    } catch (error) {
-      console.warn(`Failed to get token B for ${contractId}: ${error}`);
-      return "";
-    }
-  }
-
-  /**
-   * Last resort fallback with generic metadata
-   */
-  private getFallbackMetadata(contractId: string): TokenMetadata {
-    console.warn(`Using fallback generic metadata for ${contractId}`);
-
-    // Try to extract token symbols from contract name
-    let symbol = "LP";
-    const contractName = contractId.split('.')[1];
-
-    if (contractName) {
-      const nameParts = contractName.split('-');
-      if (nameParts.length >= 2) {
-        const filtered = nameParts.filter(part =>
-          !['lp', 'token', 'pool', 'v1', 'v2'].includes(part.toLowerCase())
-        );
-        if (filtered.length >= 2) {
-          symbol = `${filtered[0]}-${filtered[1]}`.toUpperCase();
-        }
-      }
-    }
-
-    return {
-      identifier: symbol,
-      symbol: symbol,
-      decimals: 6,
-      name: `${symbol} LP Token`,
-      description: "LP Token with incomplete metadata",
-      image: "",
-      properties: {
-        tokenAContract: "",
-        tokenBContract: "",
-        lpRebatePercent: 0.3,
-      },
-    };
   }
 
   async getTokenIdentifier(contractId: string): Promise<string> {
@@ -387,6 +469,51 @@ export class StacksClient {
 
   /**
    * Contract Search Methods
+   */
+  /**
+   * Search for fungible tokens using Hiro's metadata API
+   * This is useful for finding all available tokens
+   */
+  async searchTokens(
+    options: {
+      name?: string;
+      symbol?: string;
+      address?: string;
+      offset?: number;
+      limit?: number;
+      order_by?: string;
+      order?: 'asc' | 'desc';
+    } = {}
+  ): Promise<any[]> {
+    try {
+      // Build query parameters
+      const queryParams = new URLSearchParams();
+      if (options.name) queryParams.append('name', options.name);
+      if (options.symbol) queryParams.append('symbol', options.symbol);
+      if (options.address) queryParams.append('address', options.address);
+      if (options.offset !== undefined) queryParams.append('offset', options.offset.toString());
+      if (options.limit !== undefined) queryParams.append('limit', options.limit.toString());
+      if (options.order_by) queryParams.append('order_by', options.order_by);
+      if (options.order) queryParams.append('order', options.order);
+
+      // Use our metadata fetcher with API key rotation
+      const response = await this.fetchMetadata(`/metadata/v1/ft?${queryParams.toString()}`);
+
+      if (!response.ok) {
+        console.warn(`Failed to fetch tokens from Hiro API: ${response.status}`);
+        return [];
+      }
+
+      const data = await response.json();
+      return data.results || [];
+    } catch (error) {
+      console.error('Error searching tokens:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Search for contracts by trait
    */
   async searchContractsByTrait(
     trait: any,

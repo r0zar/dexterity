@@ -1,6 +1,6 @@
 {
   "name": "dexterity-sdk",
-  "version": "0.8.25",
+  "version": "0.8.26",
   "description": "SDK and CLI for interacting with Dexterity AMM protocol",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

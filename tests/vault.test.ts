@@ -5,6 +5,7 @@ import { Opcode } from "../src/core/opcode";
 import { Quote } from "../src/types";
 import { broadcastTransaction, Cl, cvToHex, makeContractCall, parseToCV, PostConditionMode } from "@stacks/transactions";
 import { intCV } from "@stacks/transactions";
+import { V } from "vitest/dist/chunks/environment.d8YfPkTm.js";
 
 describe("Vaults", async () => {
   let testVault;
@@ -89,7 +90,7 @@ describe("Vaults", async () => {
     let baseVault: Vault;
 
     beforeAll(async () => {
-      baseVault = await Vault.build("SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.pontis-powerline");
+      baseVault = await Vault.build("SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.pontis-powerline") as Vault;
     });
 
     it("should generate valid contract with basic configuration", () => {
@@ -169,35 +170,6 @@ describe("Vaults", async () => {
 
       // Should handle additional token transfer for imbalance
       expect(contract).toContain("(try! (contract-call? 'SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.hooter-the-owl transfer u1000");
-    });
-
-    describe("Hold-to-Earn Engine", () => {
-      let baseVault: Vault;
-
-      beforeAll(async () => {
-        baseVault = await Vault.build("SP2ZNGJ85ENDY6QRHQ5P2D4FXKGZWCKTB2T0Z55KS.charismatic-flow");
-      });
-
-      it("should generate valid hold-to-earn contract", () => {
-        const contract = baseVault.generateHoldToEarnCode();
-
-        // Check core components
-        expect(contract).toContain("(define-data-var first-start-block uint stacks-block-height)");
-        expect(contract).toContain("(define-map last-tap-block principal uint)");
-        expect(contract).toContain("(define-public (tap)");
-
-        // Check trapezoid calculations
-        expect(contract).toContain("(define-private (calculate-trapezoid-areas-39");
-        expect(contract).toContain("(define-private (calculate-trapezoid-areas-19");
-        expect(contract).toContain("(define-private (calculate-trapezoid-areas-9");
-        expect(contract).toContain("(define-private (calculate-trapezoid-areas-5");
-        expect(contract).toContain("(define-private (calculate-trapezoid-areas-2");
-      });
-
-      // it('should deploy hold-to-earn contract', async () => {
-      //   const result = await baseVault.deployHoldToEarnContract();
-      //   console.log(result);
-      // });
     });
   });
 

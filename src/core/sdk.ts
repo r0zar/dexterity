@@ -119,6 +119,7 @@ export class Dexterity {
   static async getTokenInfo(contractId: string): Promise<Token> {
     return Cache.getOrSet(`token:${contractId}`, async () => {
       try {
+        // Handle special case for STX token
         if (contractId === ".stx") {
           return {
             contractId: ".stx",
@@ -131,6 +132,14 @@ export class Dexterity {
           } as Token;
         }
 
+        // First try to get token info from the Hiro metadata API
+        const tokenInfo = await this.client.getToken(contractId);
+        
+        if (tokenInfo) {
+          return tokenInfo;
+        }
+        
+        // If that fails, fall back to multiple API calls
         const [identifier, symbol, decimals, name, metadata] =
           await Promise.all([
             this.client.getTokenIdentifier(contractId),

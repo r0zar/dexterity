@@ -78,14 +78,25 @@ export class Vault {
 
   /**
    * Static factory method to build a Vault instance from a contract ID
+   * Returns null if metadata cannot be fetched
    */
-  static async build(contractId: ContractId, reserves: boolean = true): Promise<Vault> {
+  static async build(contractId: ContractId, reserves: boolean = true): Promise<Vault | null> {
     const vault = new Vault({ contractId });
-    await vault.fetchMetadata();
+    
+    // Fetch metadata - if null is returned, we should skip this vault
+    const metadata = await vault.fetchMetadata();
+    if (metadata === null) {
+      return null;
+    }
 
     // Optional: skip reserves for faster loading
     if (reserves) {
-      await vault.fetchPoolState();
+      try {
+        await vault.fetchPoolState();
+      } catch (error) {
+        console.warn(`Failed to fetch pool state for ${contractId}: ${error}`);
+        // Continue even if we can't get reserves - they might be updated later
+      }
     }
 
     return vault;
@@ -93,176 +104,54 @@ export class Vault {
 
   /**
    * Fetch and populate pool metadata
+   * Returns null if metadata cannot be fetched, indicating the vault should be skipped
    */
-  private async fetchMetadata(): Promise<TokenMetadata> {
-    try {
-      // Try to get metadata from the token URI
-      const metadata = await Dexterity.client.getTokenMetadata(this.contractId);
+  private async fetchMetadata(): Promise<TokenMetadata | null> {
+    // Try to get metadata from the token URI
+    const metadata = await Dexterity.client.getTokenMetadata(this.contractId);
 
-      // If success, use the full metadata approach
-      if (metadata.properties) {
-        // Update vault metadata
-        this.name = metadata.name;
-        this.symbol = metadata.symbol;
-        this.decimals = metadata.decimals;
-        this.identifier = metadata.identifier;
-        this.description = metadata.description || "";
-        this.image = metadata.image || "";
-        this.fee = Math.floor((metadata.properties.lpRebatePercent / 100) * 1000000);
-        this.externalPoolId = metadata.properties.externalPoolId || "";
-        this.engineContractId = metadata.properties.engineContractId || "";
-
-        // Fetch and set token info
-        const [token0, token1] = await Promise.all([
-          Dexterity.getTokenInfo(metadata.properties.tokenAContract),
-          Dexterity.getTokenInfo(metadata.properties.tokenBContract),
-        ]);
-
-        // Update tokens
-        this.tokenA = { ...token0, reserves: 0 };
-        this.tokenB = { ...token1, reserves: 0 };
-
-        return metadata;
-      } else {
-        // Incomplete metadata, use fallback approach
-        return this.fetchMetadataFallback();
-      }
-    } catch (error) {
-      console.warn(`Metadata fetch failed for ${this.contractId}, using fallback: ${error}`);
-      return this.fetchMetadataFallback();
+    // If we couldn't get metadata, return null to indicate this vault should be skipped
+    if (!metadata) {
+      console.warn(`No metadata available for ${this.contractId}, skipping vault`);
+      return null;
     }
-  }
 
-  /**
-   * Fallback method to extract metadata directly from contract functions
-   * when token URI is not available or is invalid
-   */
-  private async fetchMetadataFallback(): Promise<TokenMetadata> {
+    // Update vault metadata
+    this.name = metadata.name;
+    this.symbol = metadata.symbol;
+    this.decimals = metadata.decimals;
+    this.identifier = metadata.identifier;
+    this.description = metadata.description || "";
+    this.image = metadata.image || "";
+    this.fee = Math.floor((metadata.properties.lpRebatePercent / 100) * 1000000);
+    this.externalPoolId = metadata.properties.externalPoolId || "";
+    this.engineContractId = metadata.properties.engineContractId || "";
+
+    // Check if token contracts are available in the metadata
+    if (!metadata.properties.tokenAContract || !metadata.properties.tokenBContract) {
+      console.warn(`Missing token contracts in metadata for ${this.contractId}, skipping vault`);
+      return null;
+    }
+
     try {
-      // Try to get basic token info using direct contract calls
-      const [name, symbol, decimals, tokenPairData] = await Promise.all([
-        Dexterity.client.getTokenName(this.contractId).catch(() => "Unknown LP Token"),
-        Dexterity.client.getTokenSymbol(this.contractId).catch(() => "LP"),
-        Dexterity.client.getTokenDecimals(this.contractId).catch(() => 6),
-        this.extractTokenPairFromContractId()
+      // Fetch and set token info
+      const [token0, token1] = await Promise.all([
+        Dexterity.getTokenInfo(metadata.properties.tokenAContract),
+        Dexterity.getTokenInfo(metadata.properties.tokenBContract),
       ]);
 
-      this.name = name;
-      this.symbol = symbol;
-      this.decimals = Number(decimals);
-      this.identifier = symbol;
-      this.description = `Liquidity Pool Token for ${tokenPairData.tokenASymbol}-${tokenPairData.tokenBSymbol}`;
-      this.image = "";
+      // Update tokens
+      this.tokenA = { ...token0, reserves: 0 };
+      this.tokenB = { ...token1, reserves: 0 };
 
-      // Use default fee if we can't extract it
-      this.fee = 3000; // Default 0.3% fee
-
-      // Extract token contracts from pool ID or try other methods
-      const tokenAContract = tokenPairData.tokenAContract;
-      const tokenBContract = tokenPairData.tokenBContract;
-
-      if (tokenAContract && tokenBContract) {
-        // Fetch and set token info
-        const [token0, token1] = await Promise.all([
-          Dexterity.getTokenInfo(tokenAContract),
-          Dexterity.getTokenInfo(tokenBContract),
-        ]);
-
-        // Update tokens
-        this.tokenA = { ...token0, reserves: 0 };
-        this.tokenB = { ...token1, reserves: 0 };
-      } else {
-        // Last resort: create generic tokens
-        this.tokenA = { ...this.createGenericToken("Token A"), reserves: 0 };
-        this.tokenB = { ...this.createGenericToken("Token B"), reserves: 0 };
-      }
-
-      // Construct minimal metadata object
-      return {
-        name: this.name,
-        symbol: this.symbol,
-        decimals: this.decimals,
-        identifier: this.identifier,
-        description: this.description,
-        image: this.image,
-        properties: {
-          lpRebatePercent: 0.3,
-          tokenAContract: this.tokenA.contractId,
-          tokenBContract: this.tokenB.contractId,
-          externalPoolId: "",
-          engineContractId: ""
-        }
-      };
+      return metadata;
     } catch (error) {
-      console.error(`Fallback metadata extraction failed for ${this.contractId}:`, error);
-      throw new Error(`Failed to extract metadata for ${this.contractId}`);
+      console.error(`Failed to fetch token info for ${this.contractId}: ${error}`);
+      return null;
     }
   }
 
-  /**
-   * Create a generic token when we can't determine the actual token
-   */
-  private createGenericToken(label: string): Token {
-    return {
-      contractId: "" as ContractId,
-      identifier: label,
-      name: label,
-      symbol: label,
-      decimals: 6,
-      description: "Unknown token",
-      image: ""
-    };
-  }
-
-  /**
-   * Try to extract token pair information from contract ID or other methods
-   */
-  private async extractTokenPairFromContractId(): Promise<{
-    tokenAContract: ContractId | null;
-    tokenBContract: ContractId | null;
-    tokenASymbol: string;
-    tokenBSymbol: string;
-  }> {
-    // Default result
-    const result = {
-      tokenAContract: null as ContractId | null,
-      tokenBContract: null as ContractId | null,
-      tokenASymbol: "UNK",
-      tokenBSymbol: "UNK"
-    };
-
-    try {
-      // Check if this is a common naming pattern like "tokenA-tokenB-lp-token"
-      const nameParts = this.contractName.split('-');
-      if (nameParts.length >= 2) {
-        // Try to extract tokens from name components
-        const potentialSymbols = nameParts.filter(p =>
-          p !== 'lp' && p !== 'token' && p !== 'pool' && p !== 'v1' && p !== 'v2'
-        );
-
-        if (potentialSymbols.length >= 2) {
-          result.tokenASymbol = potentialSymbols[0].toUpperCase();
-          result.tokenBSymbol = potentialSymbols[1].toUpperCase();
-
-          // Try to find contracts for these tokens
-          try {
-            // We could use contract search by trait here if needed
-            // For now just use the symbols we extracted
-          } catch (e) {
-            console.warn(`Failed to find contracts for extracted symbols: ${e}`);
-          }
-        }
-      }
-
-      // Try alternative methods here (contract code analysis, etc.)
-      // ...
-
-      return result;
-    } catch (error) {
-      console.warn(`Failed to extract token pair from contract ID: ${error}`);
-      return result;
-    }
-  }
+  // We've removed token extraction methods since we're skipping pools without proper metadata
 
   /**
    * Fetch both reserves and supply using lookup opcode
