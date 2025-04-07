@@ -15,7 +15,7 @@ describe("Dexterity SDK - Basic Operations", () => {
 
   beforeAll(async () => {
     try {
-      await Dexterity.configure({debug: true});
+      await Dexterity.configure({ debug: true });
       await Dexterity.discover({
         reserves: false,
         continueOnError: true // Continue even if some pools fail to load
@@ -60,6 +60,15 @@ describe("Dexterity SDK - Basic Operations", () => {
     expect(opcodeArg).toBeTypeOf("object");
   });
 
+  it("should make direct swap transaction", async () => {
+    if (skipNetworkTests || isCI) {
+      return;
+    }
+    const quoteResponse = await Dexterity.getQuote(STX_TOKEN, CHA_TOKEN, 100);
+    const txResult = await Dexterity.router.executeSwap(quoteResponse.route, 100)
+    console.log("Swap transaction result:", quoteResponse.route, txResult);
+  });
+
   describe("Graph Structure", () => {
     it("should create correct graph nodes", () => {
       if (skipNetworkTests || isCI) {
@@ -67,7 +76,7 @@ describe("Dexterity SDK - Basic Operations", () => {
       }
       const nodes = Router.nodes;
       const tokens = [CHA_TOKEN, STX_TOKEN];
-      
+
       for (const tokenId of tokens) {
         expect(nodes.has(tokenId)).toBe(true);
         const node = nodes.get(tokenId);
@@ -81,16 +90,16 @@ describe("Dexterity SDK - Basic Operations", () => {
       }
       const chaNode = Router.nodes.get(CHA_TOKEN);
       const stxNode = Router.nodes.get(STX_TOKEN);
-      
+
       // Get all vaults between STX and CHA
       const stxChaVaults = Array.from(Dexterity.getVaultsForToken(STX_TOKEN).values())
         .filter(vault => vault.getTokens().some(t => t.contractId === CHA_TOKEN));
-      
+
       // Check CHA node has edges to all vaults
       const chaEdges = Array.from(chaNode?.edges.values() || [])
         .filter(edge => edge.target.contractId === STX_TOKEN);
       expect(chaEdges.length).toBe(stxChaVaults.length);
-      
+
       // Check STX node has edges to all vaults
       const stxEdges = Array.from(stxNode?.edges.values() || [])
         .filter(edge => edge.target.contractId === CHA_TOKEN);
@@ -109,7 +118,7 @@ describe("Dexterity SDK - Basic Operations", () => {
       const chaNode = Router.nodes.get(CHA_TOKEN);
       const edges = Array.from(chaNode?.edges.values() || [])
         .filter(edge => edge.target.contractId === STX_TOKEN);
-      
+
       for (const edge of edges) {
         expect(edge.liquidity).toBeGreaterThanOrEqual(0);
         expect(edge.target.contractId).toBe(STX_TOKEN);
@@ -123,7 +132,7 @@ describe("Dexterity SDK - Basic Operations", () => {
       const stats = Router.getGraphStats();
       const stxChaVaults = Array.from(Dexterity.getVaultsForToken(STX_TOKEN).values())
         .filter(vault => vault.getTokens().some(t => t.contractId === CHA_TOKEN));
-      
+
       expect(stats.nodeCount).toBeGreaterThan(0);
       expect(stats.edgeCount).toBeGreaterThanOrEqual(stxChaVaults.length * 2); // Edges in both directions
       expect(stats.tokenIds).toContain(CHA_TOKEN);

@@ -133,12 +133,12 @@ export class Dexterity {
         }
 
         // First try to get token info from the Hiro metadata API
-        const tokenInfo = await this.client.getToken(contractId);
-        
-        if (tokenInfo) {
-          return tokenInfo;
-        }
-        
+        // const tokenInfo = await this.client.getToken(contractId);
+
+        // if (tokenInfo) {
+        //   return tokenInfo;
+        // }
+
         // If that fails, fall back to multiple API calls
         const [identifier, symbol, decimals, name, metadata] =
           await Promise.all([

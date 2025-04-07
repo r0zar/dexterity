@@ -82,7 +82,7 @@ export class Vault {
    */
   static async build(contractId: ContractId, reserves: boolean = true): Promise<Vault | null> {
     const vault = new Vault({ contractId });
-    
+
     // Fetch metadata - if null is returned, we should skip this vault
     const metadata = await vault.fetchMetadata();
     if (metadata === null) {
@@ -332,9 +332,11 @@ export class Vault {
         }
       } else {
         // Client-side: use wallet to sign and broadcast
-        const { showContractCall } = await import('@stacks/connect')
-        await showContractCall({
+        const { request } = await import('@stacks/connect')
+        await request('stx_callContract', {
+          contract: 'SP2MF04VAGYHGAZWGTEDW5VYCPDWWSY08Z1QFNDSN.counters', // contract in format: address.contract-name
           ...txConfig,
+          postConditionMode: txConfig.postConditionMode === PostConditionMode.Allow ? 'allow' : 'deny',
           fee: options.fee ?? 1000,
         });
       }

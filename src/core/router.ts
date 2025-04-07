@@ -115,16 +115,16 @@ export class Router {
 
     if (Dexterity.config.mode === "server") {
       // Server-side: create and broadcast transaction
-      
+
       // Use credentials from options if provided, otherwise fall back to config
       const senderKey = options?.privateKey || Dexterity.config.privateKey;
-      
+
       const transaction = await makeContractCall({
         ...txConfig,
         senderKey,
         fee: options?.fee || 1000
       });
-      
+
       if (options?.sponsored || Dexterity.config.sponsored) {
         return Dexterity.client.requestSponsoredTransaction(transaction.serialize());
       } else {
@@ -134,24 +134,24 @@ export class Router {
       // Client-side: use wallet to sign and broadcast
       const { showContractCall } = await import('@stacks/connect')
       const sponsored = options?.sponsored ?? Dexterity.config.sponsored
-      
+
       // If we have privateKey in options, use server-side flow but with the provided key
-      if (options?.privateKey) {
-        console.info("Using provided private key for client-mode transaction");
-        
-        const transaction = await makeContractCall({
-          ...txConfig,
-          senderKey: options.privateKey,
-          fee: options?.fee || 1000
-        });
-        
-        if (sponsored) {
-          return Dexterity.client.requestSponsoredTransaction(transaction.serialize());
-        } else {
-          return broadcastTransaction({ transaction });
-        }
-      }
-      
+      // if (options?.privateKey) {
+      //   console.info("Using provided private key for client-mode transaction");
+
+      //   const transaction = await makeContractCall({
+      //     ...txConfig,
+      //     senderKey: options.privateKey,
+      //     fee: options?.fee || 1000
+      //   });
+
+      //   if (sponsored) {
+      //     return Dexterity.client.requestSponsoredTransaction(transaction.serialize());
+      //   } else {
+      //     return broadcastTransaction({ transaction });
+      //   }
+      // }
+
       // Otherwise, use standard client-side wallet flow
       const contractCallOptions: any = {
         ...txConfig,
