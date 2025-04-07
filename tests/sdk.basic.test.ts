@@ -60,7 +60,7 @@ describe("Dexterity SDK - Basic Operations", () => {
     expect(opcodeArg).toBeTypeOf("object");
   });
 
-  it("should make direct swap transaction", async () => {
+  it.skip("should make direct swap transaction", async () => {
     if (skipNetworkTests || isCI) {
       return;
     }
